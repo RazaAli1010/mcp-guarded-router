@@ -9,10 +9,13 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import json
 import random
 import shutil
 import sys
+import time
 import tomllib
+from collections import Counter
 from dataclasses import dataclass
 
 import httpx
@@ -22,6 +25,7 @@ from rich.table import Table
 
 from mcpr import __version__
 from mcpr.config import PROJECT_ROOT, PROMPT_VERSION, REGISTRY_PATH, Settings, load_env, resolve
+from mcpr.guards import GuardChain
 from mcpr.mcp_client import load_server_configs
 from mcpr.prompt import (
     PromptTooLong,
@@ -29,9 +33,21 @@ from mcpr.prompt import (
     estimate_tokens,
     sample_tool_pool,
 )
-from mcpr.registry import confusable_scores, load_registry
+from mcpr.registry import (
+    POLICY_PATH,
+    PolicyError,
+    confusable_scores,
+    effect_with_source,
+    load_policy,
+    load_registry,
+)
 from mcpr.snapshot import capture, diff_registries, write_snapshot
-from mcpr.types import Registry
+from mcpr.types import Effect, EffectSource, Plan, Registry, ToolCall, ToolSpec
+
+#: Shared colour vocabulary, so a `destructive` effect and a `block` action read the same way in
+#: every table this module prints.
+EFFECT_STYLES: dict[str, str] = {"read": "green", "write": "yellow", "destructive": "red"}
+ACTION_STYLES: dict[str, str] = {"allow": "green", "confirm": "yellow", "block": "red"}
 
 # Import names of the SPEC.md 2.4 forbidden set. Dashes become underscores; these are the
 # names `find_spec` is asked about, not the distribution names on PyPI.
@@ -197,7 +213,7 @@ def snapshot_show(
     table.add_column("qualified_name", no_wrap=True)
     table.add_column("effect", no_wrap=True)
     table.add_column("description", overflow="ellipsis", max_width=70)
-    styles = {"read": "green", "write": "yellow", "destructive": "red"}
+    styles = EFFECT_STYLES
     for spec in tools:
         first_line = spec.description.strip().splitlines()
         table.add_row(
@@ -282,10 +298,201 @@ def data_split() -> None:
     _stub("F6")
 
 
+@dataclass(frozen=True)
+class AuditRow:
+    """One tool's effect derivation, as `mcpr guard audit` reports it.
+
+    `baked_effect` is what `schemas/registry.json` stores; `effect` is what the guards actually
+    use. They differ wherever an override was added after the snapshot was captured, which is
+    expected and reported rather than repaired (SPEC.md 8.1).
+    """
+
+    qualified_name: str
+    server: str
+    effect: Effect
+    source: EffectSource
+    why: str
+    baked_effect: Effect
+
+    @property
+    def unpinned(self) -> bool:
+        """A destructive tool resting on nothing but a verb guess. This is what exits 1."""
+        return self.effect == "destructive" and self.source == "heuristic"
+
+
+def audit_rows(registry: Registry, overrides: dict[str, str]) -> list[AuditRow]:
+    """Derive every tool's effect and its provenance, sorted by `qualified_name`. Pure.
+
+    Factored out of the command so the test for the exit-1 condition asserts the same
+    computation the CLI exits on, rather than a parallel reimplementation of it.
+    """
+    rows = []
+    for spec in registry.tools:
+        effect, source = effect_with_source(spec, overrides)
+        rows.append(
+            AuditRow(
+                qualified_name=spec.qualified_name,
+                server=spec.server,
+                effect=effect,
+                source=source,
+                why=_derivation_reason(spec, effect, source),
+                baked_effect=spec.effect,
+            )
+        )
+    return sorted(rows, key=lambda r: r.qualified_name)
+
+
+def _derivation_reason(spec: ToolSpec, effect: Effect, source: EffectSource) -> str:
+    """Human-readable account of which signal decided an effect. Pure."""
+    if source == "override":
+        return "config/policy.toml [effects]"
+    if source == "annotation":
+        return "destructiveHint" if effect == "destructive" else "readOnlyHint"
+    verb = spec.name.split("_")[0].lower()
+    return f"verb {verb!r}" if effect != "write" else f"verb {verb!r} in neither list"
+
+
 @guard_app.command("check")
-def guard_check() -> None:
-    """Run the injection -> schema -> policy chain over a call. TODO(F3/F4)."""
-    _stub("F3/F4")
+def guard_check(
+    tool: str = typer.Option(..., "--tool", help="qualified_name, or 'none' to abstain."),
+    args: str = typer.Option("{}", "--args", help="Arguments as a JSON object."),
+    plan_servers: str = typer.Option(
+        "", "--plan-servers", help="Comma-separated servers the plan allows; enables the lock."
+    ),
+    plan_max_effect: str = typer.Option(
+        "read", "--plan-max-effect", help="Highest effect the plan allows: read|write|destructive."
+    ),
+    policy_path: str = typer.Option(POLICY_PATH, "--policy", help="Path to policy.toml."),
+) -> None:
+    """Run the injection -> schema -> policy chain over one call and print every decision.
+
+    Exits 0 only when the chain allows the call. `confirm` and `block` both exit 1: a caller must
+    not proceed on a confirmation any more than on a block, and SPEC.md 3.7 says fail closed.
+    Usage errors exit 2, which Click supplies.
+    """
+    console = Console()
+    try:
+        arguments = json.loads(args)
+    except json.JSONDecodeError as exc:
+        raise typer.BadParameter(f"--args is not valid JSON: {exc}", param_hint="--args") from None
+    if not isinstance(arguments, dict):
+        raise typer.BadParameter("--args must be a JSON object", param_hint="--args")
+
+    registry = load_registry()
+    try:
+        policy = load_policy(policy_path, registry=registry)
+    except PolicyError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from None
+
+    plan = None
+    if plan_servers:
+        if plan_max_effect not in EFFECT_STYLES:
+            raise typer.BadParameter(
+                f"--plan-max-effect must be one of {sorted(EFFECT_STYLES)}",
+                param_hint="--plan-max-effect",
+            )
+        plan = Plan(
+            allowed_servers=[s.strip() for s in plan_servers.split(",") if s.strip()],
+            max_effect=plan_max_effect,  # type: ignore[arg-type]
+            created_at=time.time(),
+        )
+
+    result = GuardChain(registry, policy, plan=plan).check(ToolCall(tool=tool, arguments=arguments))
+
+    table = Table(title=f"guard chain for {tool}", title_justify="left")
+    table.add_column("layer", no_wrap=True)
+    table.add_column("action", no_wrap=True)
+    table.add_column("code", no_wrap=True)
+    table.add_column("detail", overflow="fold")
+    table.add_column("evidence", overflow="fold")
+    for decision in result.decisions:
+        style = ACTION_STYLES[decision.action]
+        table.add_row(
+            decision.layer,
+            f"[{style}]{decision.action}[/]",
+            decision.code,
+            decision.detail,
+            "\n".join(decision.evidence),
+        )
+    console.print(table)
+
+    console.print_json(json.dumps(result.model_dump(mode="json"), sort_keys=True))
+    console.print(
+        f"[{ACTION_STYLES[result.final_action]}]final_action={result.final_action}[/]  "
+        f"blocked_by={result.blocked_by or '-'}  decisions={len(result.decisions)}"
+    )
+    if result.final_action != "allow":
+        raise typer.Exit(code=1)
+
+
+@guard_app.command("audit")
+def guard_audit(
+    policy_path: str = typer.Option(POLICY_PATH, "--policy", help="Path to policy.toml."),
+    server: str = typer.Option("", "--server", help="Only tools from this server."),
+    source: str = typer.Option("", "--source", help="Only override|annotation|heuristic."),
+) -> None:
+    """Show every tool's effect and which of SPEC.md 8.1's three tiers decided it.
+
+    Exits 1 if any tool is `destructive` by heuristic alone. A guess from a verb prefix must
+    never be the only thing standing between the router and a delete: those tools have to be
+    pinned by an explicit `[effects]` override.
+    """
+    console = Console()
+    registry = load_registry()
+    try:
+        policy = load_policy(policy_path, registry=registry)
+    except PolicyError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from None
+
+    rows = audit_rows(registry, policy["effects"])
+    shown = [
+        r for r in rows if (not server or r.server == server) and (not source or r.source == source)
+    ]
+
+    table = Table(title=f"effect derivation ({REGISTRY_PATH})", title_justify="left")
+    table.add_column("qualified_name", no_wrap=True)
+    table.add_column("effect", no_wrap=True)
+    table.add_column("source", no_wrap=True)
+    table.add_column("why", overflow="fold")
+    for row in shown:
+        table.add_row(
+            row.qualified_name,
+            f"[{EFFECT_STYLES[row.effect]}]{row.effect}[/]",
+            f"[red]{row.source}[/]" if row.unpinned else row.source,
+            row.why,
+        )
+    console.print(table)
+
+    counts = Counter(r.effect for r in rows)
+    sources = Counter(r.source for r in rows)
+    console.print(
+        f"{len(rows)} tools: "
+        + ", ".join(f"{counts[e]} {e}" for e in ("read", "write", "destructive"))
+        + " | sources: "
+        + ", ".join(f"{sources[s]} {s}" for s in ("override", "annotation", "heuristic"))
+    )
+
+    drifted = [r for r in rows if r.effect != r.baked_effect]
+    if drifted:
+        # Not a failure. snapshot.py bakes ToolSpec.effect at capture time, so an override added
+        # afterwards necessarily disagrees with the frozen file. SPEC.md 8.1 says the runtime
+        # derivation wins and the snapshot is not rewritten - but the divergence is never silent.
+        console.print(
+            f"[yellow]{len(drifted)} tool(s) differ from the effect baked into the snapshot[/]: "
+            + ", ".join(f"{r.qualified_name} {r.baked_effect}->{r.effect}" for r in drifted)
+        )
+
+    unpinned = [r for r in rows if r.unpinned]
+    if unpinned:
+        console.print(
+            f"[red]{len(unpinned)} destructive tool(s) derived from the name heuristic alone[/]: "
+            + ", ".join(r.qualified_name for r in unpinned)
+        )
+        console.print("pin these with an explicit [effects] override in config/policy.toml")
+        raise typer.Exit(code=1)
+    console.print("[green]ok[/]: no tool is destructive by heuristic alone")
 
 
 @eval_app.command("score")
