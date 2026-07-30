@@ -1,0 +1,16 @@
+# SPEC.md 3.3 (determinism) and 10.3 (provenance): every tracked text file checks out with LF
+# on every platform. Without this, a CRLF checkout on Windows changes the sha256 of
+# schemas/registry.json or a labelled JSONL, and the manifest verification that every Kaggle
+# notebook runs in its first cell aborts on a mismatch that is nothing but line endings.
+* text=auto eol=lf
+
+*.py    text eol=lf
+*.json  text eol=lf
+*.jsonl text eol=lf
+*.toml  text eol=lf
+*.md    text eol=lf
+Makefile text eol=lf
+
+*.svg   text eol=lf
+*.gguf  binary
+*.tar.gz binary
