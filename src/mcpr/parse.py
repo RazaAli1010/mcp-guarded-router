@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 
-from mcpr.types import ParseResult, ToolCall
+from mcpr.types import ParseResult, ToolCall, ToolSpec
 
 #: Matches an opening markdown fence with an optional language tag. The tag class excludes `{`
 #: so the pattern can never swallow the object itself, and the newline is optional because
@@ -30,6 +30,7 @@ _FENCE_OPEN = re.compile(r"\A```[A-Za-z0-9_+.-]*[ \t]*\r?\n?")
 _MAX_PREFIX_PROBES = 8
 
 _DECODER = json.JSONDecoder()
+_WHITESPACE_RE = re.compile(r"\s+")
 
 _MISSING = object()
 
@@ -81,6 +82,37 @@ def parse_router_output(raw: str) -> ParseResult:
         return ParseResult(ok=True, call=ToolCall(tool=tool, arguments=arguments), raw=raw)
     except Exception:  # noqa: BLE001 - SPEC.md 3.7: fail closed, never propagate.
         return ParseResult(ok=False, error_code="invalid_json", raw=raw)
+
+
+def canonicalise_arguments(args: dict, spec: ToolSpec | None = None) -> dict:
+    """Reduce an argument object to the canonical form `arg_exact_acc` compares (SPEC.md 9.1).
+
+    Pure; returns a new dict and never mutates `args`. Sorts keys, drops keys whose value equals
+    the tool schema's `default`, collapses whitespace inside strings, and normalises integral
+    floats to int so `{"a": 1}` and `{"a": 1.0}` serialise identically.
+
+    `spec` is optional so abstain rows - `tool == "none"`, for which no `ToolSpec` exists - take
+    the same code path in F8 rather than needing a special case at every call site.
+
+    **Defaults are dropped at the top level only; normalisation recurses all the way down.**
+    Every `default` in the captured snapshot sits at `input_schema/properties/<key>/default`;
+    there are no nested ones. Descending would mean resolving `anyOf`, `$ref`, array `items` and
+    two different JSON Schema drafts to decide which subschema governs a nested value, and
+    getting that subtly wrong would silently move `arg_exact_acc` - half the headline number.
+    A rule that is obviously right beats one that is probably right. Do not "complete" this.
+
+    Collapsing whitespace is lossy for a genuinely multi-line argument such as
+    `filesystem.write_file.content`, but SPEC.md 9.1 states the rule flatly and it is applied to
+    prediction and gold alike, so it can only make the metric more forgiving, never wrong.
+    """
+    defaults = _top_level_defaults(spec)
+    out: dict = {}
+    for key in sorted(args):
+        value = _canon_value(args[key])
+        if key in defaults and value == _canon_value(defaults[key]):
+            continue
+        out[key] = value
+    return out
 
 
 # --- internals --------------------------------------------------------------------------------
@@ -136,3 +168,44 @@ def _decodes(text: str) -> bool:
     except (ValueError, RecursionError):
         return False
     return True
+
+
+def _top_level_defaults(spec: ToolSpec | None) -> dict:
+    """Map property name to its schema `default`, for the top level only. Pure.
+
+    Tolerates a schema with no `properties` and property entries that are not dicts: these are
+    vendor-written schemas captured verbatim, so nothing about their shape is guaranteed.
+    """
+    properties = (spec.input_schema.get("properties") if spec else None) or {}
+    if not isinstance(properties, dict):
+        return {}
+    return {
+        key: sub["default"]
+        for key, sub in properties.items()
+        if isinstance(sub, dict) and "default" in sub
+    }
+
+
+def _canon_value(value: object) -> object:
+    """Canonicalise one JSON value, recursively. Pure."""
+    # bool must precede the numeric branch: isinstance(True, int) is True in Python, so without
+    # this line `{"raw": true}` and `{"raw": 1}` would compare equal and float(True) would
+    # rewrite every boolean argument to 1. fetch.fetch.raw and filesystem.edit_file.dryRun are
+    # both booleans carrying defaults, so this fires on real data.
+    if isinstance(value, bool):
+        return value
+    # Integral floats normalise down to int, not up. json.dumps would otherwise render every
+    # integer argument as 30.0, which no "type": "integer" schema round-trips. float -> int is
+    # exact for anything a router emits; int -> float loses precision above 2**53, which a
+    # GitHub id reaches. is_integer() is total, so NaN and Infinity fall through untouched.
+    if isinstance(value, float):
+        return int(value) if value.is_integer() else value
+    if isinstance(value, str):
+        return _WHITESPACE_RE.sub(" ", value).strip()
+    if isinstance(value, dict):
+        return {key: _canon_value(value[key]) for key in sorted(value)}
+    if isinstance(value, list):
+        # Element order is preserved, never sorted: it is semantic in, for example,
+        # filesystem.edit_file.edits, where the edits apply in sequence.
+        return [_canon_value(item) for item in value]
+    return value
