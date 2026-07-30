@@ -11,6 +11,8 @@
 #   url         endpoint for http transports, "" for stdio
 #   headers_env  header name -> either an MCPR_* env var to read, or a literal value
 #   enabled     whether `snapshot refresh` contacts this server
+#   sandbox_arg whether the last positional arg must be replaced with the resolved
+#               MCPR_SANDBOX_DIR at launch, so no server is pointed outside the sandbox
 
 [servers.fetch]
 transport = "stdio"
@@ -19,6 +21,7 @@ args = ["mcp-server-fetch"]
 url = ""
 headers_env = {}
 enabled = true
+sandbox_arg = false
 
 [servers.git]
 transport = "stdio"
@@ -27,24 +30,28 @@ args = ["mcp-server-git", "--repository", "<MCPR_SANDBOX_DIR>"]
 url = ""
 headers_env = {}
 enabled = true
+sandbox_arg = true
 
-# Optional: needs Node on PATH, and costs ~250 MB of npx cache against the SPEC.md 2.5 budget.
+# Needs Node on PATH, and costs ~250 MB of npx cache against the SPEC.md 2.5 budget.
 [servers.filesystem]
 transport = "stdio"
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-filesystem", "<MCPR_SANDBOX_DIR>"]
 url = ""
 headers_env = {}
-enabled = false
+enabled = true
+sandbox_arg = true
 
 # GitHub's official remote server. The old @modelcontextprotocol/server-github is archived.
-# Zero disk cost, but needs a fine-grained read-only PAT in MCPR_GITHUB_PAT.
+# Zero disk cost, but needs a fine-grained read-only PAT in MCPR_GITHUB_PAT. `snapshot refresh`
+# records it as unavailable and carries on when the PAT is absent.
 [servers.github]
 transport = "http"
 command = ""
 args = []
 url = "https://api.githubcopilot.com/mcp/"
-enabled = false
+enabled = true
+sandbox_arg = false
 
 [servers.github.headers_env]
 Authorization = "Bearer ${MCPR_GITHUB_PAT}"

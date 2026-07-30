@@ -41,3 +41,5 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 addopts = "-q -m 'not live'"
 markers = ["live: needs a running MCP server or network"]
 testpaths = ["tests"]
+# The only async tests in the project are the `live` ones; auto mode saves marking each.
+asyncio_mode = "auto"
