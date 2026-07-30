@@ -7,12 +7,26 @@ network and no MCP server (SPEC.md 12).
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from mcpr import mcp_client
 from mcpr.config import Settings
-from mcpr.registry import effect_for, effect_from_parts
-from mcpr.types import ToolSpec
+from mcpr.registry import (
+    DEFAULT_SANDBOXED_SERVERS,
+    POLICY_SECTIONS,
+    PolicyError,
+    effect_for,
+    effect_from_parts,
+    effect_with_source,
+    load_policy,
+    load_registry,
+)
+from mcpr.types import Registry, ToolSpec
+
+FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURE_PATH = FIXTURES / "registry_min.json"
 
 
 def _spec(name: str, annotations: dict | None = None, server: str = "demo") -> ToolSpec:
@@ -71,6 +85,108 @@ def test_destructive_hint_wins_over_read_only_hint() -> None:
 def test_annotation_beats_name_heuristic() -> None:
     """A read-sounding name must not override an explicit destructive annotation."""
     assert effect_for(_spec("get_thing", {"destructiveHint": True})) == "destructive"
+
+
+# --- derivation provenance (SPEC.md 8.1, F3) ---------------------------------------------------
+
+# (name, annotations, overrides, expected effect, expected source)
+SOURCE_CASES = [
+    ("delete_file", {"destructiveHint": True}, {"demo.delete_file": "read"}, "read", "override"),
+    ("anything", {"destructiveHint": True}, None, "destructive", "annotation"),
+    ("anything", {"readOnlyHint": True}, None, "read", "annotation"),
+    # A False hint decides nothing, so the source is the tier that actually did.
+    ("search_code", {"destructiveHint": False}, None, "read", "heuristic"),
+    ("delete_file", {}, None, "destructive", "heuristic"),
+    ("frobnicate", {}, None, "write", "heuristic"),
+]
+
+
+@pytest.mark.parametrize(
+    ("name", "annotations", "overrides", "effect", "source"),
+    SOURCE_CASES,
+)
+def test_effect_with_source_attributes_the_deciding_tier(
+    name: str, annotations: dict, overrides: dict | None, effect: str, source: str
+) -> None:
+    assert effect_with_source(_spec(name, annotations), overrides) == (effect, source)
+
+
+@pytest.mark.parametrize(("name", "annotations", "overrides", "expected"), CASES)
+def test_effect_with_source_agrees_with_effect_for(
+    name: str, annotations: dict, overrides: dict | None, expected: str
+) -> None:
+    """The two entry points must not drift: one is baked into the snapshot, one runs in the guard.
+
+    `snapshot.py` bakes `ToolSpec.effect` via `effect_from_parts` at capture time while the guards
+    call the runtime derivation, so a divergence here would mean the frozen registry and the live
+    policy disagreed about which tools are destructive.
+    """
+    spec = _spec(name, annotations)
+    assert effect_with_source(spec, overrides)[0] == effect_for(spec, overrides) == expected
+
+
+# --- load_policy (SPEC.md 8, F3) ---------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def registry() -> Registry:
+    return load_registry(FIXTURE_PATH)
+
+
+def _policy_file(tmp_path: Path, body: str) -> Path:
+    """Write a policy file at a path unique to the test, so the TOML lru_cache cannot leak."""
+    path = tmp_path / "policy.toml"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+def test_load_policy_returns_every_section(tmp_path: Path, registry: Registry) -> None:
+    """Callers index straight into a section; a missing table must not become a KeyError."""
+    policy = load_policy(_policy_file(tmp_path, "[effects]\n"), Settings(), registry)
+    assert set(POLICY_SECTIONS) <= set(policy)
+    assert policy["rules"] == {} and policy["limits"] == {}
+
+
+def test_load_policy_overlays_the_resolved_sandbox_dir(tmp_path: Path, registry: Registry) -> None:
+    """The guard reads an absolute root and never an env var, which is what keeps it pure."""
+    policy = load_policy(
+        _policy_file(tmp_path, '[paths]\nsandbox_root = "./ignored"\n'),
+        Settings(sandbox_dir="./sandbox"),
+        registry,
+    )
+    root = Path(policy["paths"]["sandbox_root"])
+    assert root.is_absolute()
+    assert root.name == "sandbox"
+
+
+def test_load_policy_defaults_the_sandboxed_servers(tmp_path: Path, registry: Registry) -> None:
+    """SPEC.md 8.3 as amended: containment covers the servers that touch the local disk."""
+    policy = load_policy(_policy_file(tmp_path, "[paths]\n"), Settings(), registry)
+    assert policy["paths"]["sandboxed_servers"] == list(DEFAULT_SANDBOXED_SERVERS)
+
+
+def test_load_policy_rejects_an_unknown_tool_key(tmp_path: Path, registry: Registry) -> None:
+    """F3 scope 5: a typo in the override table must not silently do nothing."""
+    body = '[effects]\n"github.delete_file" = "destructive"\n'
+    with pytest.raises(PolicyError, match="not a tool in the registry"):
+        load_policy(_policy_file(tmp_path, body), Settings(), registry)
+
+
+def test_load_policy_rejects_an_invalid_effect_value(tmp_path: Path, registry: Registry) -> None:
+    """Without this, `= "destroy"` falls through to the annotation tier and looks like it worked."""
+    body = '[effects]\n"git.git_reset" = "destroy"\n'
+    with pytest.raises(PolicyError, match="expected one of"):
+        load_policy(_policy_file(tmp_path, body), Settings(), registry)
+
+
+def test_load_policy_is_not_cached_across_sandbox_changes(
+    tmp_path: Path, registry: Registry
+) -> None:
+    """The TOML read is cached; the env overlay must not be, or a moved sandbox goes unnoticed."""
+    path = _policy_file(tmp_path, "[effects]\n")
+    first = load_policy(path, Settings(sandbox_dir="./sandbox"), registry)
+    second = load_policy(path, Settings(sandbox_dir="./other"), registry)
+    assert first["paths"]["sandbox_root"] != second["paths"]["sandbox_root"]
 
 
 # --- config/servers.toml resolution -----------------------------------------------------------

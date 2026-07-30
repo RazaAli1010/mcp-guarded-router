@@ -424,7 +424,22 @@ class GuardChainResult(BaseModel):
     decisions: list[GuardDecision]
     final_action: Literal["allow", "confirm", "block"]   # most restrictive wins
     blocked_by: str | None
+
+class ConfirmToken(BaseModel):          # F3
+    token: str
+    call_hash: str                      # sha256 of the canonicalised {tool, arguments}
+    issued_at: float                    # time.monotonic()
+    expires_at: float                   # time.monotonic()
 ```
+
+`call_hash` binds a token to one exact call, so it cannot be replayed against a *different* one.
+"Canonicalised" here means deterministic serialisation —
+`json.dumps({"tool":…, "arguments":…}, sort_keys=True, ensure_ascii=False, separators=(",",":"))`
+over the **raw** arguments. It is deliberately **not** `parse.canonicalise_arguments`, which
+collapses whitespace inside strings and drops keys equal to a schema default; binding a
+confirmation to that lossy form would let a token approved for one file body be redeemed against
+a materially different one. `arg_exact_acc`'s notion of equality (§9.1) and a confirmation gate's
+must never be unified.
 
 Chain order is fixed: **injection → schema → policy**. Untrusted content is inspected before
 the model output is trusted enough to validate. All three layers always run (no short-circuit)
@@ -509,6 +524,21 @@ $1–15 for the full labelling run; put the actual spend in the report.
 Rule 3 exists because many real servers omit annotations entirely — do not assume they are
 present. F1 must report annotation coverage as a percentage in `registry.meta.json`.
 
+The rule-1 table in `config/policy.toml [effects]` is **populated by F3** and is a shared
+contract: it is keyed by `qualified_name`, its loader raises on a key absent from
+`schemas/registry.json` or a value outside `{read, write, destructive}`, and an override may pin
+or escalate a derivation but never softens a server's own `destructiveHint`. `registry.py`
+exposes `effect_with_source() -> tuple[Effect, EffectSource]` so `mcpr guard audit` can show
+which tier decided each tool; `EffectSource` is `"override" | "annotation" | "heuristic"`.
+
+`ToolSpec.effect` is baked into the frozen snapshot by `snapshot.py` at capture time, so adding
+an override makes the stored field disagree with the live derivation. **The runtime derivation
+wins**: every guard calls `effect_for(spec, overrides)`, never `spec.effect`. The snapshot is not
+rewritten — a policy edit must not invalidate `sha256_registry` and every prediction file that
+cites it (§10.3) — but the divergence is never silent: `mcpr guard audit` reports it and a test
+asserts that stored and derived effects may differ *only* where an explicit `[effects]` key
+exists, so editing the rule-3 verb sets cannot desync the snapshot unnoticed.
+
 ### 8.2 Layer 1 — schema validation
 
 `guards/schema_guard.py::check(call, registry) -> GuardDecision`. Codes:
@@ -527,10 +557,26 @@ present. F1 must report annotation coverage as a percentage in `registry.meta.js
   (`path`, `file_path`, `source`, `destination`, `repository`), `os.path.realpath` of the
   resolved value must be inside `MCPR_SANDBOX_DIR`. Otherwise → `block`, code `path_escape`.
   This catches `..` traversal and symlink escape, and is tested with both.
+  **Scope (F3):** the check applies only to tools whose `server` is listed in
+  `config/policy.toml [paths] sandboxed_servers`, default `["filesystem", "git"]`. §7.2 already
+  defines the sandbox as "the ONLY dir *filesystem/git tools* may touch", and applying
+  containment universally would block benign remote reads on their own schema defaults —
+  `github.get_file_contents.path` defaults to `"/"` and `github.list_commits.path` is described
+  as a file path, neither of which names anything on the local disk. Blocking them would inflate
+  `FPR_benign` (§9.3), a reported C4 number, with pure false positives.
 - **Plan lock**: `dispatch` records `plan = {allowed_servers, max_effect}` from the *first*
   routing decision on the clean user query. Any later call targeting a server outside
   `plan.allowed_servers`, or with an effect above `plan.max_effect`, → `confirm`, code
   `outside_plan`. This is the out-of-band control that survives a successful injection.
+
+  ```python
+  class Plan(BaseModel):              # F3
+      allowed_servers: list[str]
+      max_effect: Literal["read", "write", "destructive"]
+      created_at: float               # time.time(); provenance, never compared to a clock
+  ```
+
+  Effect ranking is `{"read": 0, "write": 1, "destructive": 2}`.
 - Confirmation is a real gate: `dispatch` returns `final_action="confirm"` with an opaque
   `confirm_token` valid `CONFIRM_TTL_SECONDS`; execution happens only on a second call
   supplying that token. There is no auto-confirm flag, ever.

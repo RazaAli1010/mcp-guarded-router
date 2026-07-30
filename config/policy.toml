@@ -1,4 +1,4 @@
-# Guardrail policy (SPEC.md 8). Structure only - F3 and F4 fill in the contents.
+# Guardrail policy (SPEC.md 8). Structure by F0, [effects] and [paths] by F3, [thresholds] by F4.
 #
 # Guardrails are code, not prompts: nothing in this file is a model instruction. These are the
 # tunable inputs to deterministic checks, kept out of the source so the F8 threshold sweep can
@@ -6,13 +6,56 @@
 
 # Per-tool effect overrides, keyed by qualified_name. First rule of effect_for() (SPEC.md 8.1),
 # so an entry here beats both MCP annotations and the name heuristic.
-# Intentionally empty until F3.
+#
+# load_policy() raises PolicyError on a key that names no tool in schemas/registry.json and on a
+# value outside read/write/destructive, so a typo here cannot silently do nothing.
+#
+# An override may PIN a derivation that is already right, or ESCALATE one that is too weak. It
+# must never soften a server's own destructiveHint - see filesystem.write_file below.
 [effects]
+"filesystem.create_directory" = "write"       # pins the heuristic; no hint either way
+"filesystem.edit_file"        = "destructive" # pins destructiveHint: true
+"filesystem.move_file"        = "destructive" # pins destructiveHint: true
+"filesystem.write_file"       = "destructive" # pins destructiveHint: true
+"git.git_checkout"            = "destructive" # ESCALATION - see note below
+"git.git_commit"              = "write"       # pins the heuristic; destructiveHint: false
+"git.git_reset"               = "destructive" # pins destructiveHint: true
 
-# Layer 2 behaviour (SPEC.md 8.3). F3 fills these in.
+# git.git_checkout is the one tool the derivation gets wrong. The server reports
+# destructiveHint: false, and "checkout" is in neither READ_VERBS nor DESTRUCTIVE_VERBS, so rule 3
+# guesses "write". A checkout discards uncommitted work in the tree, which is exactly the class of
+# thing SPEC.md 8.3 exists to gate. This is the only entry that changes an outcome; the other six
+# pin a derivation that is already correct, so that changing a verb list or a vendor annotation
+# cannot quietly reclassify them.
+#
+# The F3 spec's table also listed eight GitHub write/destructive tools. NONE of them are in the
+# snapshot: F1 captured the GitHub server with `X-MCP-Readonly: true`, so all 23 github.* tools
+# are reads. They are kept here as a comment rather than deleted, because load_policy() would
+# reject them as live keys and a future non-readonly capture will want them back:
+#
+#   "github.create_or_update_file" = "write"
+#   "github.create_pull_request"   = "write"
+#   "github.delete_file"           = "destructive"
+#   "github.fork_repository"       = "write"
+#   "github.issue_write"           = "write"
+#   "github.merge_pull_request"    = "destructive"
+#   "github.push_files"            = "write"
+#   "github.unstar_repository"     = "destructive"
+#
+# The same table set filesystem.write_file and filesystem.edit_file to "write". They are
+# "destructive" above instead: the server sets destructiveHint: true on both, and an override
+# that overrules a vendor's destructive signal is the one direction this table must not go.
+# Nothing downstream is weakened by the stricter reading - SPEC.md 8.3 sends write and destructive
+# alike to `confirm`, and 9.3's destructive_catch_rate counts both classes.
+
+# Layer 2 behaviour (SPEC.md 8.3). Deliberately empty, and not "yet to be filled in": every knob
+# that could plausibly live here - confirm_effects, enforce_path_containment - is a switch that
+# can only WEAKEN a gate the spec says has no bypass. That is an auto-confirm flag wearing a hat.
+# The confirmation rule, the path-argument name set and the effect ranking are code, not config
+# (SPEC.md 3.2, "a guardrail that can be talked out of its decision is not a guardrail").
 [rules]
 
-# Size and rate caps applied during dispatch. F3/F9 fill these in.
+# Size and rate caps applied during dispatch. F9 fills these in.
 [limits]
 
 # Layer 3 scoring thresholds (SPEC.md 8.4). Swept over [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0] in
@@ -24,4 +67,15 @@ injection_block = 3.0
 [paths]
 # The ONLY directory filesystem/git tools may touch. Path containment (SPEC.md 8.3) resolves
 # every path-like argument with os.path.realpath and blocks anything landing outside this root.
+#
+# Overwritten at load time by the resolved MCPR_SANDBOX_DIR; the value here is the documented
+# default, not the live one.
 sandbox_root = "./sandbox"
+
+# Containment applies only to servers whose path arguments name something on the local disk.
+# SPEC.md 7.2 already scopes the sandbox this way ("the ONLY dir filesystem/git tools may touch").
+# Applying it to every server would block benign remote reads on their own schema defaults -
+# github.get_file_contents.path defaults to "/" and github.list_commits.path is described as a
+# file path, neither of which is a local directory - and those false positives land directly in
+# the reported FPR_benign (SPEC.md 9.3).
+sandboxed_servers = ["filesystem", "git"]
