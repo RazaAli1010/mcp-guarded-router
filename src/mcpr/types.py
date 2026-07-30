@@ -27,6 +27,11 @@ GuardAction = Literal["allow", "confirm", "block"]
 GuardLayer = Literal["schema", "policy", "injection"]
 Effect = Literal["read", "write", "destructive"]
 
+#: Which of SPEC.md 8.1's three tiers decided a tool's effect. `mcpr guard audit` exits 1 on any
+#: tool that is `destructive` by `heuristic` alone: a verb guess must never be the only thing
+#: standing between the router and a delete.
+EffectSource = Literal["override", "annotation", "heuristic"]
+
 #: The closed set of prompt-format versions. The live value is `config.PROMPT_VERSION`, which
 #: stays a plain `str` so that `config.py` need not import this module. Declaring the version as
 #: a type rather than a bare string is what turns SPEC.md 6.3's freeze rule into something a type
@@ -189,6 +194,47 @@ class GuardChainResult(BaseModel):
     decisions: list[GuardDecision]
     final_action: GuardAction
     blocked_by: str | None = None
+
+
+class ConfirmToken(BaseModel):
+    """One outstanding confirmation for a write or destructive call (SPEC.md 6.6, F3 delta).
+
+    `call_hash` binds the token to one exact call, so a token issued for a harmless edit cannot
+    be replayed against a different one. It is the sha256 of the *raw* `{tool, arguments}` under
+    `json.dumps(sort_keys=True, ensure_ascii=False, separators=(",", ":"))` - deliberately not
+    `parse.canonicalise_arguments`, which is a lossy metric function. See `guards/confirm.py`.
+
+    **Both timestamps are `time.monotonic()` readings, not wall-clock.** They are meaningless as
+    dates and must never be serialised to disk or shown to a user; `time.time()` is for display
+    only (F3 implementation notes). A monotonic clock cannot be moved backwards by an NTP step or
+    a daylight-saving change, which is the whole point for a TTL that gates a destructive action.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    call_hash: str
+    issued_at: float
+    expires_at: float
+
+
+class Plan(BaseModel):
+    """The out-of-band lock taken from the first routing decision on the clean user query
+    (SPEC.md 8.3, F3 delta).
+
+    Any later call targeting a server outside `allowed_servers`, or with an effect ranking above
+    `max_effect`, is forced to `confirm`. This is the layer that does not depend on *detecting*
+    anything, so it is the one that survives a successful prompt injection (SPEC.md 13 D5).
+
+    Unlike `ConfirmToken`, `created_at` is `time.time()`: it is provenance recorded alongside a
+    run, never a deadline, and nothing compares it against a clock.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    allowed_servers: list[str]
+    max_effect: Effect
+    created_at: float
 
 
 class DatasetRow(BaseModel):

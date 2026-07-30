@@ -61,6 +61,13 @@ SAMPLES: list[BaseModel] = [
         final_action="block",
         blocked_by="policy",
     ),
+    t.ConfirmToken(
+        token="dGhpcy1pcy1ub3QtYS1yZWFsLXRva2Vu",
+        call_hash="0" * 64,
+        issued_at=1000.0,
+        expires_at=1300.0,
+    ),
+    t.Plan(allowed_servers=["github", "git"], max_effect="read", created_at=1.75e9),
     t.DatasetRow(
         id="q_000123",
         query="which repos under vercel mention 'edge runtime' in their code?",
@@ -160,6 +167,36 @@ def test_prompt_version_type_tracks_the_constant() -> None:
     members = get_args(t.PromptVersion)
     assert PROMPT_VERSION in members
     assert members[-1] == PROMPT_VERSION
+
+
+def test_plan_max_effect_reuses_the_effect_alias() -> None:
+    """`Plan.max_effect` must be the same closed set as `ToolSpec.effect`, not a re-spelling.
+
+    The plan lock compares `effect_rank(effect) > effect_rank(plan.max_effect)` (SPEC.md 8.3);
+    if the two Literals ever diverged, a legal `ToolSpec.effect` could be unrankable against a
+    legal `Plan.max_effect` and the comparison would raise inside the guard - which fails closed,
+    but as `guard_error` rather than the honest `outside_plan`.
+    """
+    assert get_args(t.Plan.model_fields["max_effect"].annotation) == get_args(t.Effect)
+    with pytest.raises(ValidationError):
+        t.Plan(allowed_servers=["github"], max_effect="readonly", created_at=0.0)
+
+
+def test_effect_source_names_all_three_derivation_tiers() -> None:
+    """One member per tier of SPEC.md 8.1, so `mcpr guard audit` can attribute every effect."""
+    assert set(get_args(t.EffectSource)) == {"override", "annotation", "heuristic"}
+
+
+def test_confirm_token_rejects_an_unknown_key() -> None:
+    """No bypass field can be smuggled onto a token - `extra="forbid"` is the guard here."""
+    with pytest.raises(ValidationError):
+        t.ConfirmToken(
+            token="x",
+            call_hash="y",
+            issued_at=0.0,
+            expires_at=1.0,
+            auto_confirm=True,
+        )
 
 
 def test_dataset_row_rejects_an_unknown_split() -> None:
