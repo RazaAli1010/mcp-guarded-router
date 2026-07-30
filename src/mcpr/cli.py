@@ -144,8 +144,15 @@ def snapshot_refresh(
     meta = write_snapshot(result)
 
     table = Table(title="mcpr snapshot refresh", title_justify="left")
-    for column in ("server", "transport", "package", "version", "tools", "annotated", "status"):
-        table.add_column(column, no_wrap=column != "status", overflow="fold")
+    table.add_column("server", no_wrap=True)
+    table.add_column("transport", no_wrap=True)
+    # The GitHub remote reports a build SHA as its version, so both of these are capped -
+    # an unbounded column squeezes every other one into illegibility.
+    table.add_column("package", overflow="ellipsis", max_width=34)
+    table.add_column("version", overflow="ellipsis", max_width=22)
+    table.add_column("tools", no_wrap=True)
+    table.add_column("annotated", no_wrap=True)
+    table.add_column("status", overflow="fold")
     for report in result.reports:
         ok = report.status == "ok"
         table.add_row(
