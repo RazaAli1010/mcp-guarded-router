@@ -1,0 +1,45 @@
+{
+  "captured_utc": "2026-07-30T07:13:07Z",
+  "effect_counts": {
+    "destructive": 4,
+    "read": 41,
+    "write": 5
+  },
+  "sdk_version": "1.29.0",
+  "servers": [
+    {
+      "annotation_coverage": 0.0,
+      "id": "fetch",
+      "package": "mcp-server-fetch",
+      "package_version": "2026.7.10",
+      "tool_count": 1,
+      "transport": "stdio"
+    },
+    {
+      "annotation_coverage": 1.0,
+      "id": "git",
+      "package": "mcp-server-git",
+      "package_version": "2026.7.10",
+      "tool_count": 12,
+      "transport": "stdio"
+    },
+    {
+      "annotation_coverage": 1.0,
+      "id": "filesystem",
+      "package": "@modelcontextprotocol/server-filesystem",
+      "package_version": "0.2.0",
+      "tool_count": 14,
+      "transport": "stdio"
+    },
+    {
+      "annotation_coverage": 1.0,
+      "id": "github",
+      "package": "https://api.githubcopilot.com/mcp/",
+      "package_version": "github-mcp-server/remote-8b64a2c8569a434e1ea3b5f8cc24f29022ba5ab8",
+      "tool_count": 23,
+      "transport": "http"
+    }
+  ],
+  "sha256_registry": "6151e896e486f7a65554388e07a25ca9c25169c69bcdba2e87e78e1dafaefb90",
+  "tool_count": 50
+}
