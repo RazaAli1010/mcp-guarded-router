@@ -51,6 +51,29 @@ def test_stub_commands_raise_not_implemented() -> None:
     assert "F6" in str(result.exception)
 
 
+def test_run_prompt_renders_and_prints_its_hash() -> None:
+    """F2 acceptance criterion 6: a prompt a human can read end-to-end, plus its hash.
+
+    Seed 2 rather than 0 deliberately. Against the real 50-tool snapshot, seed 0 draws a
+    20-tool catalog that exceeds MAX_PROMPT_TOKENS - see the session summary's escalation of
+    the TOOLS_PER_PROMPT_MAX / MAX_PROMPT_TOKENS conflict.
+    """
+    result = runner.invoke(
+        cli.app,
+        ["run", "prompt", "--query", "find repos mentioning edge runtime", "--seed", "2"],
+    )
+    assert result.exit_code == 0, result.output
+    for section in ("# Tools", "# Request", "prompt_hash"):
+        assert section in result.output
+    assert "Prompt version: v1" in result.output
+
+
+def test_run_prompt_rejects_an_unknown_gold() -> None:
+    result = runner.invoke(cli.app, ["run", "prompt", "--query", "x", "--gold", "github.nope"])
+    assert result.exit_code == 1
+    assert "github.nope" in result.output
+
+
 def test_forbidden_check_reports_pass_on_a_clean_environment() -> None:
     """The row acceptance criterion 2 of F0 asks for."""
     assert cli._check_forbidden_importable().status == cli.PASS
