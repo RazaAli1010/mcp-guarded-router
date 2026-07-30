@@ -1,0 +1,43 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcpr"
+version = "0.1.0"
+description = "A fine-tuned MCP tool router with a three-layer guardrail."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "mcp>=1.29,<2",          # v1.x line; see SPEC.md 13 D1
+  "pydantic>=2.13,<3",
+  "jsonschema>=4.26,<5",
+  "typer>=0.27,<1",
+  "rich>=15,<16",
+  "python-dotenv>=1.0,<2",
+  "httpx>=0.28",
+  "tomli-w>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=9.1,<10", "pytest-asyncio>=1.0", "ruff>=0.16,<1"]
+kaggle = []   # documentation-only; never installed on the laptop
+
+[project.scripts]
+mcpr = "mcpr.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcpr"]
+
+[tool.ruff]
+line-length = 100
+# ruff 0.16 formats Python blocks inside Markdown. SPEC.md and specs/*.md are authoritative
+# documents whose code blocks are quoted contracts - `ruff format` must never rewrite them.
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+addopts = "-q -m 'not live'"
+markers = ["live: needs a running MCP server or network"]
+testpaths = ["tests"]

@@ -1,0 +1,27 @@
+# Guardrail policy (SPEC.md 8). Structure only - F3 and F4 fill in the contents.
+#
+# Guardrails are code, not prompts: nothing in this file is a model instruction. These are the
+# tunable inputs to deterministic checks, kept out of the source so the F8 threshold sweep can
+# vary them without touching code.
+
+# Per-tool effect overrides, keyed by qualified_name. First rule of effect_for() (SPEC.md 8.1),
+# so an entry here beats both MCP annotations and the name heuristic.
+# Intentionally empty until F3.
+[effects]
+
+# Layer 2 behaviour (SPEC.md 8.3). F3 fills these in.
+[rules]
+
+# Size and rate caps applied during dispatch. F3/F9 fill these in.
+[limits]
+
+# Layer 3 scoring thresholds (SPEC.md 8.4). Swept over [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0] in
+# F8 to produce the ASR-vs-FPR curve; the values below are the operating point.
+[thresholds]
+injection_flag = 1.0
+injection_block = 3.0
+
+[paths]
+# The ONLY directory filesystem/git tools may touch. Path containment (SPEC.md 8.3) resolves
+# every path-like argument with os.path.realpath and blocks anything landing outside this root.
+sandbox_root = "./sandbox"

@@ -1,0 +1,52 @@
+# MCP server launch configuration (SPEC.md 4.4).
+#
+# Only `mcpr snapshot refresh` (F1) reads this file and contacts these servers. Everything
+# else in the project reads the frozen snapshot at schemas/registry.json instead, which is
+# what makes the test suite runnable offline with no MCP server running.
+#
+# Each table carries the same keys so callers never have to branch on presence:
+#   transport   "stdio" | "http"
+#   command     executable for stdio transports, "" for http
+#   args        argv tail for stdio transports; <placeholders> are filled in by F1
+#   url         endpoint for http transports, "" for stdio
+#   headers_env  header name -> either an MCPR_* env var to read, or a literal value
+#   enabled     whether `snapshot refresh` contacts this server
+
+[servers.fetch]
+transport = "stdio"
+command = "uvx"
+args = ["mcp-server-fetch"]
+url = ""
+headers_env = {}
+enabled = true
+
+[servers.git]
+transport = "stdio"
+command = "uvx"
+args = ["mcp-server-git", "--repository", "<MCPR_SANDBOX_DIR>"]
+url = ""
+headers_env = {}
+enabled = true
+
+# Optional: needs Node on PATH, and costs ~250 MB of npx cache against the SPEC.md 2.5 budget.
+[servers.filesystem]
+transport = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "<MCPR_SANDBOX_DIR>"]
+url = ""
+headers_env = {}
+enabled = false
+
+# GitHub's official remote server. The old @modelcontextprotocol/server-github is archived.
+# Zero disk cost, but needs a fine-grained read-only PAT in MCPR_GITHUB_PAT.
+[servers.github]
+transport = "http"
+command = ""
+args = []
+url = "https://api.githubcopilot.com/mcp/"
+enabled = false
+
+[servers.github.headers_env]
+Authorization = "Bearer ${MCPR_GITHUB_PAT}"
+"X-MCP-Readonly" = "true"
+"X-MCP-Toolsets" = "repos,issues,pull_requests,users"
