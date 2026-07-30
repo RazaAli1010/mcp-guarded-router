@@ -85,7 +85,7 @@ def effect_for(spec: ToolSpec, overrides: dict[str, str] | None = None) -> Effec
     Tier 3 exists because many real servers ship no annotations at all - which is why
     `registry.meta.json` reports annotation coverage per server.
     """
-    return _effect_from_parts(spec.qualified_name, spec.name, spec.annotations, overrides)
+    return effect_from_parts(spec.qualified_name, spec.name, spec.annotations, overrides)
 
 
 def confusables(qualified_name: str, k: int, registry: Registry | None = None) -> list[str]:
@@ -132,10 +132,7 @@ def confusable_scores(
     return [(name, -score) for score, name in scored[:k]]
 
 
-# --- internals --------------------------------------------------------------------------------
-
-
-def _effect_from_parts(
+def effect_from_parts(
     qualified_name: str,
     name: str,
     annotations: dict,
@@ -163,6 +160,18 @@ def _effect_from_parts(
     return "write"
 
 
+def registry_sha256(path: str | Path = REGISTRY_PATH) -> str:
+    """Hex sha256 of the snapshot file as it sits on disk. Impure.
+
+    SPEC.md 10.3 lets a metric be computed only from prediction files whose recorded registry
+    hash matches the working tree, so this is the number F8 and F10 compare against.
+    """
+    return sha256_file(resolve(path))
+
+
+# --- internals --------------------------------------------------------------------------------
+
+
 def _tokens(text: str) -> set[str]:
     """Lowercase alphanumeric token set of a string. Pure."""
     return set(_TOKEN_RE.findall(text.lower()))
@@ -174,12 +183,3 @@ def _jaccard(a: set[str], b: set[str]) -> float:
         return 0.0
     union = a | b
     return len(a & b) / len(union) if union else 0.0
-
-
-def registry_sha256(path: str | Path = REGISTRY_PATH) -> str:
-    """Hex sha256 of the snapshot file as it sits on disk. Impure.
-
-    SPEC.md 10.3 lets a metric be computed only from prediction files whose recorded registry
-    hash matches the working tree, so this is the number F8 and F10 compare against.
-    """
-    return sha256_file(resolve(path))
