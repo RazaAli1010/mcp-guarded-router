@@ -18,9 +18,18 @@ import hashlib
 import json
 import math
 import random
+from collections.abc import Collection
 
-from mcpr.config import MAX_PROMPT_TOKENS, PROMPT_VERSION
-from mcpr.types import RouterPrompt, ToolSpec, UntrustedBlock
+from mcpr.config import (
+    HELD_OUT_TOOLS,
+    MAX_PROMPT_TOKENS,
+    MIN_CONFUSABLES,
+    PROMPT_VERSION,
+    TOOLS_PER_PROMPT_MAX,
+    TOOLS_PER_PROMPT_MIN,
+)
+from mcpr.registry import confusables
+from mcpr.types import Registry, RouterPrompt, ToolSpec, UntrustedBlock
 
 #: Characters per token for Qwen2.5 on this project's prompts, +/-8%. Deliberately not a real
 #: tokenizer: `transformers` may never be installed on the laptop (SPEC.md 2.4). F7 calibrates
@@ -129,6 +138,98 @@ def build_router_prompt(
         prompt_hash=_prompt_hash(ROUTER_SYSTEM_PROMPT, user),
         tool_names=[spec.qualified_name for spec in ordered],
     )
+
+
+def sample_tool_pool(
+    gold: str,
+    registry: Registry,
+    rng: random.Random,
+    *,
+    allow_heldout: bool = False,
+    exclude: Collection[str] = (),
+) -> list[ToolSpec]:
+    """Draw the tool catalog one dataset row is asked to route over. Pure given `registry`.
+
+    Always contains `gold`, plus up to `MIN_CONFUSABLES` of its nearest confusables as forced
+    hard negatives, with the rest drawn uniformly. `HELD_OUT_TOOLS` are excluded unless
+    `allow_heldout` - that exclusion is what makes `heldout_tool_acc` a zero-shot measurement
+    rather than a memorisation one.
+
+    `exclude` is the seam for abstain rows. SPEC.md asks that a `gold == "none"` pool contain no
+    tool that could serve the query, but "could serve" is a judgement about the query, and this
+    module has no query semantics and must not acquire any. So F2 guarantees only the mechanical
+    part - every name in `exclude` is absent from the result - and F6, which owns the query and
+    the teacher model, decides what goes in it.
+
+    Returns the pool sorted by `qualified_name`. That is a canonical order for diffing dataset
+    rows, *not* the rendered order: `build_router_prompt` shuffles under its own seed, and
+    `RouterPrompt.tool_names` is what records how the tools were actually presented.
+
+    Raises `ValueError` for a held-out gold without `allow_heldout`, for a gold that is also in
+    `exclude`, or for an `exclude` set so large that no catalog of `TOOLS_PER_PROMPT_MIN` tools
+    can be built. All three are caller bugs that would otherwise ship as silently defective
+    dataset rows.
+    """
+    by_name = {spec.qualified_name: spec for spec in registry.tools}
+    abstaining = gold == "none"
+
+    if not abstaining:
+        if gold not in by_name:
+            raise KeyError(gold)
+        if gold in exclude:
+            raise ValueError(f"gold {gold!r} is also in exclude")
+        if not allow_heldout and gold in HELD_OUT_TOOLS:
+            raise ValueError(
+                f"gold {gold!r} is held out; pass allow_heldout=True for a zero-shot row"
+            )
+
+    blocked = set(exclude)
+    if not allow_heldout:
+        blocked |= set(HELD_OUT_TOOLS)
+
+    # `candidates` inherits registry.tools order, which is sorted by qualified_name. Keep it a
+    # list: the population handed to rng.sample below must never come from iterating a set, or
+    # per-process string hash randomisation would make the pool differ between interpreters.
+    candidates = [
+        spec
+        for spec in registry.tools
+        if spec.qualified_name not in blocked and spec.qualified_name != gold
+    ]
+    base = 0 if abstaining else 1
+    reachable = base + len(candidates)
+    if reachable < TOOLS_PER_PROMPT_MIN:
+        raise ValueError(
+            f"only {reachable} tools are drawable but TOOLS_PER_PROMPT_MIN={TOOLS_PER_PROMPT_MIN}"
+        )
+
+    # rng call 1 of 2. Always drawn at the full SPEC.md 7.1 range and clamped afterwards, never
+    # `rng.randint(MIN, reachable)`: making the draw's bounds depend on registry size would
+    # silently change every downstream prompt_hash the next time `snapshot refresh` adds a tool.
+    k = min(rng.randint(TOOLS_PER_PROMPT_MIN, TOOLS_PER_PROMPT_MAX), reachable)
+
+    forced: list[str] = []
+    if not abstaining:
+        # Filter to drawable candidates *before* slicing. A held-out tool can also be a top
+        # confusable - github.search_pull_requests is both, for github.search_code - and slicing
+        # first would spend a hard-negative slot on something that then gets dropped.
+        drawable = {spec.qualified_name for spec in candidates}
+        ranked = [n for n in confusables(gold, len(registry.tools), registry) if n in drawable]
+        forced = ranked[: min(MIN_CONFUSABLES, k - base)]
+
+    chosen_names = {gold, *forced}
+    remaining = [spec for spec in candidates if spec.qualified_name not in chosen_names]
+
+    # rng call 2 of 2. Exactly two draws happen on every path, in this order, so the pool is a
+    # function of (seed, gold, registry, exclude) alone. Note this does NOT mean two different
+    # calls leave the stream at the same position - rng.sample consumes entropy proportional to
+    # what it draws - so a caller reusing one Random across rows must treat the row order as
+    # part of its seed.
+    filler = rng.sample(remaining, k - base - len(forced))
+
+    chosen = filler + [by_name[n] for n in forced]
+    if not abstaining:
+        chosen.append(by_name[gold])
+    return sorted(chosen, key=lambda spec: spec.qualified_name)
 
 
 # --- internals --------------------------------------------------------------------------------
