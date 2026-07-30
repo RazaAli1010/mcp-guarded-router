@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from typing import get_args
+
 import pytest
 from pydantic import BaseModel, ValidationError
 
 from mcpr import types as t
+from mcpr.config import PROMPT_VERSION
 
 TOOL_SPEC = t.ToolSpec(
     server="github",
@@ -35,6 +38,12 @@ SAMPLES: list[BaseModel] = [
     t.ParseResult(ok=True, call=TOOL_CALL, error_code=None, raw='{"tool":"x","arguments":{}}'),
     t.ParseResult(ok=False, call=None, error_code="invalid_json", raw="not json"),
     t.UntrustedBlock(source="github.issue_read", content="hello", truncated=False, signals=[]),
+    t.RouterPrompt(
+        system="You are a tool router.",
+        user="# Tools\n{}\n\n# Request\nx\n",
+        prompt_hash="0123456789abcdef",
+        tool_names=["github.search_code"],
+    ),
     t.GuardDecision(
         layer="policy",
         action="confirm",
@@ -138,6 +147,19 @@ def test_prediction_row_allows_a_failed_parse() -> None:
         gen_tokens=9,
     )
     assert row.pred is None
+
+
+def test_prompt_version_type_tracks_the_constant() -> None:
+    """`PromptVersion` is the closed set; `config.PROMPT_VERSION` is the live member of it.
+
+    They live in different modules on purpose - `config.py` imports nothing from `mcpr` - so
+    nothing but this assertion stops them drifting apart. Bumping the format means adding the
+    new member here *and* moving the constant, and SPEC.md 6.3 says both invalidate every
+    labelled dataset.
+    """
+    members = get_args(t.PromptVersion)
+    assert PROMPT_VERSION in members
+    assert members[-1] == PROMPT_VERSION
 
 
 def test_dataset_row_rejects_an_unknown_split() -> None:

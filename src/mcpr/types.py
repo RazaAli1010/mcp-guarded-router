@@ -27,6 +27,12 @@ GuardAction = Literal["allow", "confirm", "block"]
 GuardLayer = Literal["schema", "policy", "injection"]
 Effect = Literal["read", "write", "destructive"]
 
+#: The closed set of prompt-format versions. The live value is `config.PROMPT_VERSION`, which
+#: stays a plain `str` so that `config.py` need not import this module. Declaring the version as
+#: a type rather than a bare string is what turns SPEC.md 6.3's freeze rule into something a type
+#: checker enforces: adding `"v2"` here fans out to every file that must be regenerated.
+PromptVersion = Literal["v1"]
+
 
 class ToolSpec(BaseModel):
     """One entry of `schemas/registry.json` (SPEC.md 6.1).
@@ -122,6 +128,26 @@ class ParseResult(BaseModel):
     call: ToolCall | None = None
     error_code: ParseErrorCode | None = None
     raw: str
+
+
+class RouterPrompt(BaseModel):
+    """One rendered router prompt (SPEC.md 6.3).
+
+    `prompt_hash` is `sha256(system + "\\n" + user)[:16]`, so it moves when the tool order moves.
+    That is deliberate: F8 recomputes it from the stored row and fails the run on a mismatch,
+    which is what catches drift between the training render and the evaluation render.
+
+    `tool_names` is the *rendered* order - after `build_router_prompt`'s seed shuffle - not the
+    sorted order `sample_tool_pool` returns. F6 must store it verbatim as `DatasetRow.tool_pool`;
+    re-sorting it would make that reconstruction, and therefore the drift check, impossible.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    system: str
+    user: str
+    prompt_hash: str
+    tool_names: list[str]
 
 
 class UntrustedBlock(BaseModel):
