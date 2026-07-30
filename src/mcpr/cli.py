@@ -7,6 +7,7 @@ NotImplementedError naming the feature that fills them in.
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import shutil
 import sys
@@ -19,7 +20,11 @@ from rich.console import Console
 from rich.table import Table
 
 from mcpr import __version__
-from mcpr.config import PROJECT_ROOT, PROMPT_VERSION, Settings, load_env, resolve
+from mcpr.config import PROJECT_ROOT, PROMPT_VERSION, REGISTRY_PATH, Settings, load_env, resolve
+from mcpr.mcp_client import load_server_configs
+from mcpr.registry import confusable_scores, load_registry
+from mcpr.snapshot import capture, diff_registries, write_snapshot
+from mcpr.types import Registry
 
 # Import names of the SPEC.md 2.4 forbidden set. Dashes become underscores; these are the
 # names `find_spec` is asked about, not the distribution names on PyPI.
@@ -106,15 +111,137 @@ app.add_typer(models_app, name="models")
 
 
 @snapshot_app.command("refresh")
-def snapshot_refresh() -> None:
-    """Contact the configured MCP servers and rewrite schemas/registry.json. TODO(F1)."""
-    _stub("F1")
+def snapshot_refresh(
+    servers: str = typer.Option(
+        "",
+        "--servers",
+        help="Comma-separated server ids. Defaults to every server enabled in servers.toml.",
+    ),
+    raw_dir: str = typer.Option(
+        "",
+        "--raw-dir",
+        help="Also dump each server's verbatim tools/list payload here, for fixture building.",
+    ),
+) -> None:
+    """Contact the configured MCP servers and rewrite schemas/registry.json.
+
+    The only command in the project allowed to open an MCP connection (SPEC.md 3.1). Exits 0
+    when at least one server answered, recording the others as unavailable; exits 1 only when
+    none did.
+    """
+    configs = load_server_configs()
+    ids = (
+        [s.strip() for s in servers.split(",") if s.strip()]
+        if servers
+        else [sid for sid, cfg in configs.items() if cfg.enabled]
+    )
+    console = Console()
+    if not ids:
+        console.print("[red]no servers selected and none enabled in config/servers.toml[/]")
+        raise typer.Exit(code=1)
+
+    result = asyncio.run(capture(ids, raw_dir=resolve(raw_dir) if raw_dir else None))
+    meta = write_snapshot(result)
+
+    table = Table(title="mcpr snapshot refresh", title_justify="left")
+    for column in ("server", "transport", "package", "version", "tools", "annotated", "status"):
+        table.add_column(column, no_wrap=column != "status", overflow="fold")
+    for report in result.reports:
+        ok = report.status == "ok"
+        table.add_row(
+            report.id,
+            report.transport,
+            report.package,
+            report.package_version or "-",
+            str(report.tool_count),
+            f"{report.annotation_coverage:.0%}",
+            "[green]ok[/]" if ok else f"[yellow]unavailable[/]: {report.reason}",
+        )
+    console.print(table)
+    console.print(
+        f"{meta['tool_count']} tools -> {REGISTRY_PATH} "
+        f"(sha256 {meta['sha256_registry'][:12]}...), effects {meta['effect_counts']}"
+    )
+    if not result.ok_servers:
+        console.print("[red]no server could be reached; the snapshot was not updated[/]")
+        raise typer.Exit(code=1)
+
+
+@snapshot_app.command("show")
+def snapshot_show(
+    server: str = typer.Option("", "--server", help="Only tools from this server."),
+    effect: str = typer.Option("", "--effect", help="Only tools with this derived effect."),
+) -> None:
+    """Print the frozen snapshot as a table. Reads the file only - never the network."""
+    tools = load_registry().tools
+    if server:
+        tools = [t for t in tools if t.server == server]
+    if effect:
+        tools = [t for t in tools if t.effect == effect]
+
+    table = Table(title=f"{len(tools)} tools", title_justify="left")
+    table.add_column("qualified_name", no_wrap=True)
+    table.add_column("effect", no_wrap=True)
+    table.add_column("description", overflow="ellipsis", max_width=70)
+    styles = {"read": "green", "write": "yellow", "destructive": "red"}
+    for spec in tools:
+        first_line = spec.description.strip().splitlines()
+        table.add_row(
+            spec.qualified_name,
+            f"[{styles[spec.effect]}]{spec.effect}[/]",
+            first_line[0] if first_line else "",
+        )
+    Console().print(table)
 
 
 @snapshot_app.command("diff")
-def snapshot_diff() -> None:
-    """Report drift between the frozen snapshot and the live servers. TODO(F1)."""
-    _stub("F1")
+def snapshot_diff(old: str = typer.Argument(..., help="Path to an earlier registry.json.")) -> None:
+    """Report drift between an earlier snapshot and the current one. Exits 1 on any change.
+
+    SPEC.md 13 D3 accepts that a frozen snapshot ages; this is what makes the ageing visible
+    rather than silent, so a later session notices that a server changed under it.
+    """
+    console = Console()
+    current = load_registry()
+    previous = Registry.model_validate_json(resolve(old).read_text(encoding="utf-8"))
+    delta = diff_registries(previous, current)
+
+    for label, names, colour in (
+        ("added", delta.added, "green"),
+        ("removed", delta.removed, "red"),
+        ("changed", delta.changed, "yellow"),
+    ):
+        for name in names:
+            console.print(f"[{colour}]{label:8}[/] {name}")
+    if not delta.any_change:
+        console.print("[green]no drift[/]: the two snapshots are identical")
+        return
+    console.print(
+        f"{len(delta.added)} added, {len(delta.removed)} removed, {len(delta.changed)} changed"
+    )
+    raise typer.Exit(code=1)
+
+
+@snapshot_app.command("confusables")
+def snapshot_confusables(
+    qualified_name: str = typer.Argument(..., help="e.g. github.search_code"),
+    k: int = typer.Option(8, "-k", help="How many neighbours to print."),
+) -> None:
+    """Print the tools most easily mistaken for this one, with their scores."""
+    console = Console()
+    try:
+        ranked = confusable_scores(qualified_name, k)
+    except KeyError:
+        console.print(f"[red]{qualified_name} is not in {REGISTRY_PATH}[/]")
+        raise typer.Exit(code=1) from None
+
+    table = Table(title=f"confusables for {qualified_name}", title_justify="left")
+    table.add_column("#", no_wrap=True)
+    table.add_column("qualified_name", no_wrap=True)
+    table.add_column("score", no_wrap=True)
+    for rank, (name, score) in enumerate(ranked, start=1):
+        table.add_row(str(rank), name, f"{score:.4f}")
+    Console().print(table)
 
 
 @data_app.command("synth")

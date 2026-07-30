@@ -83,12 +83,16 @@ async def build_registry(server_ids: list[str]) -> Registry:
     return (await capture(server_ids)).registry
 
 
-async def capture(server_ids: list[str]) -> CaptureResult:
+async def capture(server_ids: list[str], raw_dir: Path | None = None) -> CaptureResult:
     """Contact each server, convert its tools, and record what happened to each.
 
     Impure. A server that raises `McpUnavailable` becomes a `status="unavailable"` report and
     the capture continues - SPEC.md's F1 notes require the project to be completable with no
     GitHub PAT, just with a smaller confusable set.
+
+    When `raw_dir` is given, each server's untouched `tools/list` payload is also written
+    there. That dump is what `test_input_schema_verbatim` compares the stored schemas
+    against, so the "no helpful reformatting" rule is checked against real bytes.
 
     Tools are sorted by `qualified_name`, which is the primary key everywhere downstream.
     """
@@ -110,7 +114,7 @@ async def capture(server_ids: list[str]) -> CaptureResult:
                 )
             )
             continue
-        reports.append(await _capture_one(server_id, cfg, overrides, specs))
+        reports.append(await _capture_one(server_id, cfg, overrides, specs, raw_dir))
 
     specs.sort(key=lambda s: s.qualified_name)
     return CaptureResult(registry=Registry(version=1, tools=specs), reports=reports)
@@ -220,6 +224,7 @@ async def _capture_one(
     cfg: ServerConfig,
     overrides: dict[str, str],
     specs: list[ToolSpec],
+    raw_dir: Path | None = None,
 ) -> ServerReport:
     """Capture one server, appending its tools to `specs`. Impure; never raises."""
     package = package_name(cfg)
@@ -233,6 +238,9 @@ async def _capture_one(
             status="unavailable",
             reason=exc.reason,
         )
+
+    if raw_dir is not None:
+        write_json(raw_dir / f"{server_id}.json", raw_tools)
 
     tools = [to_tool_spec(server_id, raw, overrides) for raw in raw_tools]
     specs.extend(tools)
