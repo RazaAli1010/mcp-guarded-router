@@ -41,9 +41,14 @@ def test_reserved_namespaces_are_stubs_not_silent_successes(namespace: str) -> N
 
 
 def test_stub_commands_raise_not_implemented() -> None:
-    result = runner.invoke(cli.app, ["snapshot", "refresh"])
+    """`snapshot` is F1's and no longer a stub, so this checks a namespace still unbuilt.
+
+    Deliberately not `snapshot refresh`: that command opens MCP connections, and SPEC.md 12
+    requires the suite to run with no network and no server listening.
+    """
+    result = runner.invoke(cli.app, ["data", "synth"])
     assert isinstance(result.exception, NotImplementedError)
-    assert "F1" in str(result.exception)
+    assert "F6" in str(result.exception)
 
 
 def test_forbidden_check_reports_pass_on_a_clean_environment() -> None:

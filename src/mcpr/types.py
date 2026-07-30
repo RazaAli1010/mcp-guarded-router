@@ -48,6 +48,55 @@ class ToolSpec(BaseModel):
     effect: Effect
 
 
+class Registry(BaseModel):
+    """The whole of `schemas/registry.json` (SPEC.md 6.1).
+
+    `tools` is sorted by `qualified_name`; `snapshot.py` guarantees the ordering on write and
+    `registry.load_registry` does not re-sort on read, so a hand-edited file that is out of
+    order is a test failure rather than something silently repaired.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: int = 1
+    tools: list[ToolSpec]
+
+
+class ServerConfig(BaseModel):
+    """One resolved `[servers.<id>]` table of `config/servers.toml` (SPEC.md 5).
+
+    "Resolved" means every launch-time substitution has already happened: `${MCPR_*}` header
+    interpolation and the `sandbox_arg` / `<MCPR_SANDBOX_DIR>` replacement. Nothing downstream
+    of `mcp_client.load_server_configs` needs to know those placeholders existed.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    transport: Literal["stdio", "http"]
+    command: str = ""
+    args: list[str] = []
+    url: str = ""
+    headers: dict[str, str] = {}
+    enabled: bool = True
+    sandbox_arg: bool = False
+
+
+class ToolResult(BaseModel):
+    """The outcome of one MCP `tools/call` (F1 scope 1).
+
+    `content_text` is the concatenation of the text blocks in the MCP `content` list; non-text
+    blocks (image, audio, resource) are summarised rather than dropped silently, because a
+    tool result that arrives as an image still has to be visible to the F4 injection guard.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    content_text: str
+    is_error: bool
+    structured: dict | None = None
+
+
 class ToolCall(BaseModel):
     """The single JSON object the router emits (SPEC.md 6.2).
 

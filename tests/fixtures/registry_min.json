@@ -1,0 +1,1272 @@
+{
+  "tools": [
+    {
+      "annotations": {},
+      "description": "Fetches a URL from the internet and optionally extracts its contents as markdown.\n\nAlthough originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.",
+      "effect": "read",
+      "input_schema": {
+        "description": "Parameters for fetching a URL.",
+        "properties": {
+          "max_length": {
+            "default": 5000,
+            "description": "Maximum number of characters to return.",
+            "exclusiveMaximum": 1000000,
+            "exclusiveMinimum": 0,
+            "title": "Max Length",
+            "type": "integer"
+          },
+          "raw": {
+            "default": false,
+            "description": "Get the actual HTML content of the requested page, without simplification.",
+            "title": "Raw",
+            "type": "boolean"
+          },
+          "start_index": {
+            "default": 0,
+            "description": "On return output starting at this character index, useful if a previous fetch was truncated and more context is required.",
+            "minimum": 0,
+            "title": "Start Index",
+            "type": "integer"
+          },
+          "url": {
+            "description": "URL to fetch",
+            "format": "uri",
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "Fetch",
+        "type": "object"
+      },
+      "name": "fetch",
+      "output_schema": null,
+      "qualified_name": "fetch.fetch",
+      "server": "fetch",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": null,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
+      "effect": "read",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "excludePatterns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "name": "directory_tree",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.directory_tree",
+      "server": "filesystem",
+      "title": "Directory Tree"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
+      "effect": "destructive",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "dryRun": {
+            "default": false,
+            "description": "Preview changes using git-style diff format",
+            "type": "boolean"
+          },
+          "edits": {
+            "items": {
+              "properties": {
+                "newText": {
+                  "description": "Text to replace with",
+                  "type": "string"
+                },
+                "oldText": {
+                  "description": "Text to search for - must match exactly",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "oldText",
+                "newText"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "edits"
+        ],
+        "type": "object"
+      },
+      "name": "edit_file",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.edit_file",
+      "server": "filesystem",
+      "title": "Edit File"
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": null,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+      "effect": "read",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "name": "list_directory",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.list_directory",
+      "server": "filesystem",
+      "title": "List Directory"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.",
+      "effect": "destructive",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "destination": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "destination"
+        ],
+        "type": "object"
+      },
+      "name": "move_file",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.move_file",
+      "server": "filesystem",
+      "title": "Move File"
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": null,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories.",
+      "effect": "read",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "head": {
+            "description": "If provided, returns only the first N lines of the file",
+            "type": "number"
+          },
+          "path": {
+            "type": "string"
+          },
+          "tail": {
+            "description": "If provided, returns only the last N lines of the file",
+            "type": "number"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "name": "read_text_file",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.read_text_file",
+      "server": "filesystem",
+      "title": "Read Text File"
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": null,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
+      "effect": "read",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "excludePatterns": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "path": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "pattern"
+        ],
+        "type": "object"
+      },
+      "name": "search_files",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.search_files",
+      "server": "filesystem",
+      "title": "Search Files"
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.",
+      "effect": "destructive",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "content"
+        ],
+        "type": "object"
+      },
+      "name": "write_file",
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
+      },
+      "qualified_name": "filesystem.write_file",
+      "server": "filesystem",
+      "title": "Write File"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Adds file contents to the staging area",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo_path",
+          "files"
+        ],
+        "title": "GitAdd",
+        "type": "object"
+      },
+      "name": "git_add",
+      "output_schema": null,
+      "qualified_name": "git.git_add",
+      "server": "git",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Records changes to the repository",
+      "effect": "write",
+      "input_schema": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo_path",
+          "message"
+        ],
+        "title": "GitCommit",
+        "type": "object"
+      },
+      "name": "git_commit",
+      "output_schema": null,
+      "qualified_name": "git.git_commit",
+      "server": "git",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Shows differences between branches or commits",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "context_lines": {
+            "default": 3,
+            "title": "Context Lines",
+            "type": "integer"
+          },
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo_path",
+          "target"
+        ],
+        "title": "GitDiff",
+        "type": "object"
+      },
+      "name": "git_diff",
+      "output_schema": null,
+      "qualified_name": "git.git_diff",
+      "server": "git",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Shows the commit logs",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "end_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "End timestamp for filtering commits. Accepts: ISO 8601 format (e.g., '2024-01-15T14:30:25'), relative dates (e.g., '2 weeks ago', 'yesterday'), or absolute dates (e.g., '2024-01-15', 'Jan 15 2024')",
+            "title": "End Timestamp"
+          },
+          "max_count": {
+            "default": 10,
+            "title": "Max Count",
+            "type": "integer"
+          },
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          },
+          "start_timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Start timestamp for filtering commits. Accepts: ISO 8601 format (e.g., '2024-01-15T14:30:25'), relative dates (e.g., '2 weeks ago', 'yesterday'), or absolute dates (e.g., '2024-01-15', 'Jan 15 2024')",
+            "title": "Start Timestamp"
+          }
+        },
+        "required": [
+          "repo_path"
+        ],
+        "title": "GitLog",
+        "type": "object"
+      },
+      "name": "git_log",
+      "output_schema": null,
+      "qualified_name": "git.git_log",
+      "server": "git",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false,
+        "title": null
+      },
+      "description": "Unstages all staged changes",
+      "effect": "destructive",
+      "input_schema": {
+        "properties": {
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo_path"
+        ],
+        "title": "GitReset",
+        "type": "object"
+      },
+      "name": "git_reset",
+      "output_schema": null,
+      "qualified_name": "git.git_reset",
+      "server": "git",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true,
+        "title": null
+      },
+      "description": "Shows the working tree status",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "repo_path": {
+            "title": "Repo Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repo_path"
+        ],
+        "title": "GitStatus",
+        "type": "object"
+      },
+      "name": "git_status",
+      "output_schema": null,
+      "qualified_name": "git.git_status",
+      "server": "git",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Get file or directory contents"
+      },
+      "description": "Get the contents of a file or directory from a GitHub repository",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "owner": {
+            "description": "Repository owner (username or organization)",
+            "type": "string",
+            "x-mcp-header": "owner"
+          },
+          "path": {
+            "default": "/",
+            "description": "Path to file/directory",
+            "type": "string"
+          },
+          "ref": {
+            "description": "Accepts optional git refs such as `refs/tags/{tag}`, `refs/heads/{branch}` or `refs/pull/{pr_number}/head`",
+            "type": "string"
+          },
+          "repo": {
+            "description": "Repository name",
+            "type": "string",
+            "x-mcp-header": "repo"
+          },
+          "sha": {
+            "description": "Accepts optional commit SHA. If specified, it will be used instead of ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "type": "object"
+      },
+      "name": "get_file_contents",
+      "output_schema": null,
+      "qualified_name": "github.get_file_contents",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Get issue details"
+      },
+      "description": "Get information about a specific issue in a GitHub repository.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "issue_number": {
+            "description": "The number of the issue",
+            "type": "number"
+          },
+          "method": {
+            "description": "The read operation to perform on a single issue.\nOptions are:\n1. get - Get issue details. Also returns best-effort hierarchy flags (`has_parent`, `has_children`); `parent` and `sub_issues_summary` are optional relationship summaries.\n2. get_comments - Get issue comments.\n3. get_sub_issues - Get sub-issues (children) of the issue.\n4. get_parent - Get the parent issue, if this issue is a sub-issue of another.\n5. get_labels - Get labels assigned to the issue.\n",
+            "enum": [
+              "get",
+              "get_comments",
+              "get_sub_issues",
+              "get_parent",
+              "get_labels"
+            ],
+            "type": "string"
+          },
+          "owner": {
+            "description": "The owner of the repository",
+            "type": "string",
+            "x-mcp-header": "owner"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "repo": {
+            "description": "The name of the repository",
+            "type": "string",
+            "x-mcp-header": "repo"
+          }
+        },
+        "required": [
+          "method",
+          "owner",
+          "repo",
+          "issue_number"
+        ],
+        "type": "object"
+      },
+      "name": "issue_read",
+      "output_schema": null,
+      "qualified_name": "github.issue_read",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "List commits"
+      },
+      "description": "Get list of commits of a branch in a GitHub repository. Returns at least 30 results per page by default, but can return more if specified using the perPage parameter (up to 100).",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "author": {
+            "description": "Author username or email address to filter commits by",
+            "type": "string"
+          },
+          "owner": {
+            "description": "Repository owner",
+            "type": "string",
+            "x-mcp-header": "owner"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "path": {
+            "description": "Only commits containing this file path will be returned",
+            "type": "string"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "repo": {
+            "description": "Repository name",
+            "type": "string",
+            "x-mcp-header": "repo"
+          },
+          "sha": {
+            "description": "Commit SHA, branch or tag name to list commits of. If not provided, uses the default branch of the repository. If a commit SHA is provided, will list commits up to that SHA.",
+            "type": "string"
+          },
+          "since": {
+            "description": "Only commits after this date will be returned (ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DD)",
+            "type": "string"
+          },
+          "until": {
+            "description": "Only commits before this date will be returned (ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DD)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "type": "object"
+      },
+      "name": "list_commits",
+      "output_schema": null,
+      "qualified_name": "github.list_commits",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "List issues"
+      },
+      "description": "List issues in a GitHub repository. For pagination, use the 'endCursor' from the previous response's 'pageInfo' in the 'after' parameter.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "after": {
+            "description": "Cursor for pagination. Use the cursor from the previous response.",
+            "type": "string"
+          },
+          "direction": {
+            "description": "Order direction. If provided, the 'orderBy' also needs to be provided.",
+            "enum": [
+              "ASC",
+              "DESC"
+            ],
+            "type": "string"
+          },
+          "field_filters": {
+            "description": "Filter by custom issue field values. Each entry takes a field_name and a value; the server looks up the field and coerces the value to its type (single-select option name, text, number, or YYYY-MM-DD date).",
+            "items": {
+              "properties": {
+                "field_name": {
+                  "description": "Name of the custom field (e.g. \"Priority\"). Case-insensitive.",
+                  "type": "string"
+                },
+                "value": {
+                  "description": "Value to filter on. For single-select fields, the option name (e.g. \"P1\"). For dates, YYYY-MM-DD. For numbers, the numeric value as a string. For text, the text value.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field_name",
+                "value"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "labels": {
+            "description": "Filter by labels",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "orderBy": {
+            "description": "Order issues by field. If provided, the 'direction' also needs to be provided.",
+            "enum": [
+              "CREATED_AT",
+              "UPDATED_AT",
+              "COMMENTS"
+            ],
+            "type": "string"
+          },
+          "owner": {
+            "description": "Repository owner",
+            "type": "string",
+            "x-mcp-header": "owner"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "repo": {
+            "description": "Repository name",
+            "type": "string",
+            "x-mcp-header": "repo"
+          },
+          "since": {
+            "description": "Filter by date (ISO 8601 timestamp)",
+            "type": "string"
+          },
+          "state": {
+            "description": "Filter by state, by default both open and closed issues are returned when not provided",
+            "enum": [
+              "OPEN",
+              "CLOSED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "type": "object"
+      },
+      "name": "list_issues",
+      "output_schema": null,
+      "qualified_name": "github.list_issues",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Search code"
+      },
+      "description": "Fast and precise code search across ALL GitHub repositories using GitHub's native search engine. Best for finding exact symbols, functions, classes, or specific code patterns.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "order": {
+            "description": "Sort order for results",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "query": {
+            "description": "Search query (GitHub code search REST). Implicit AND between terms; supports `OR`, `NOT`, and `\"quoted phrase\"` for exact match. Qualifiers: `repo:owner/repo`, `org:`, `user:`, `language:`, `path:dir` (prefix match), `filename:exact.ext`, `extension:`, `in:file`, `in:path`, `size:`, `is:archived`, `is:fork`. Max 256 chars. Examples: `WithContext language:go org:github`; `\"package main\" repo:o/r`; `func extension:go path:cmd repo:o/r`; `NOT TODO language:go repo:o/r`.",
+            "type": "string"
+          },
+          "sort": {
+            "description": "Sort field ('indexed' only)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_code",
+      "output_schema": null,
+      "qualified_name": "github.search_code",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Search commits"
+      },
+      "description": "Search for commits across GitHub repositories using GitHub's commit search syntax. Useful for finding specific changes, authors, or messages across one or many repositories. Searches the default branch only.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "order": {
+            "description": "Sort order",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "query": {
+            "description": "Commit search query (GitHub commit search REST). Searches commit messages on the default branch only. Scope the search with `repo:owner/repo`, `org:`, or `user:` (queries without a scope qualifier match across all of GitHub and are usually not what you want). Other qualifiers: `author:`, `committer:`, `author-name:`, `committer-name:`, `author-email:`, `committer-email:`, `author-date:`, `committer-date:` (supports `>`, `<`, `>=`, `<=`, and `YYYY-MM-DD..YYYY-MM-DD` ranges), `merge:true|false`, `hash:`, `tree:`, `parent:`, `is:public`. Examples: `repo:owner/repo fix panic`; `org:github author:defunkt committer-date:>=2024-01-01`; `\"refactor cache\" repo:o/r`; `hash:abc1234 repo:o/r`.",
+            "type": "string"
+          },
+          "sort": {
+            "description": "Sort by author or committer date (defaults to best match)",
+            "enum": [
+              "author-date",
+              "committer-date"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_commits",
+      "output_schema": null,
+      "qualified_name": "github.search_commits",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Search issues"
+      },
+      "description": "Search for issues in GitHub repositories using issues search syntax already scoped to is:issue",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "order": {
+            "description": "Sort order",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "owner": {
+            "description": "Optional repository owner. If provided with repo, only issues for this repository are listed.",
+            "type": "string",
+            "x-mcp-header": "owner"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "query": {
+            "description": "Search query using GitHub issues search syntax",
+            "type": "string"
+          },
+          "repo": {
+            "description": "Optional repository name. If provided with owner, only issues for this repository are listed.",
+            "type": "string",
+            "x-mcp-header": "repo"
+          },
+          "sort": {
+            "description": "Sort field by number of matches of categories, defaults to best match",
+            "enum": [
+              "comments",
+              "reactions",
+              "reactions-+1",
+              "reactions--1",
+              "reactions-smile",
+              "reactions-thinking_face",
+              "reactions-heart",
+              "reactions-tada",
+              "interactions",
+              "created",
+              "updated"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_issues",
+      "output_schema": null,
+      "qualified_name": "github.search_issues",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Search pull requests"
+      },
+      "description": "Search for pull requests in GitHub repositories using issues search syntax already scoped to is:pr",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "order": {
+            "description": "Sort order",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "owner": {
+            "description": "Optional repository owner. If provided with repo, only pull requests for this repository are listed.",
+            "type": "string",
+            "x-mcp-header": "owner"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "query": {
+            "description": "Search query using GitHub pull request search syntax",
+            "type": "string"
+          },
+          "repo": {
+            "description": "Optional repository name. If provided with owner, only pull requests for this repository are listed.",
+            "type": "string",
+            "x-mcp-header": "repo"
+          },
+          "sort": {
+            "description": "Sort field by number of matches of categories, defaults to best match",
+            "enum": [
+              "comments",
+              "reactions",
+              "reactions-+1",
+              "reactions--1",
+              "reactions-smile",
+              "reactions-thinking_face",
+              "reactions-heart",
+              "reactions-tada",
+              "interactions",
+              "created",
+              "updated"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_pull_requests",
+      "output_schema": null,
+      "qualified_name": "github.search_pull_requests",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Search repositories"
+      },
+      "description": "Find GitHub repositories by name, description, readme, topics, or other metadata. Perfect for discovering projects, finding examples, or locating specific repositories across GitHub.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "minimal_output": {
+            "default": true,
+            "description": "Return minimal repository information (default: true). When false, returns full GitHub API repository objects.",
+            "type": "boolean"
+          },
+          "order": {
+            "description": "Sort order",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "query": {
+            "description": "Repository search query. Examples: 'machine learning in:name stars:>1000 language:python', 'topic:react', 'user:facebook'. Supports advanced search syntax for precise filtering.",
+            "type": "string"
+          },
+          "sort": {
+            "description": "Sort repositories by field, defaults to best match",
+            "enum": [
+              "stars",
+              "forks",
+              "help-wanted-issues",
+              "updated"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_repositories",
+      "output_schema": null,
+      "qualified_name": "github.search_repositories",
+      "server": "github",
+      "title": null
+    },
+    {
+      "annotations": {
+        "destructiveHint": null,
+        "idempotentHint": false,
+        "openWorldHint": null,
+        "readOnlyHint": true,
+        "title": "Search users"
+      },
+      "description": "Find GitHub users by username, real name, or other profile information. Useful for locating developers, contributors, or team members.",
+      "effect": "read",
+      "input_schema": {
+        "properties": {
+          "order": {
+            "description": "Sort order",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "type": "string"
+          },
+          "page": {
+            "description": "Page number for pagination (min 1)",
+            "minimum": 1,
+            "type": "number"
+          },
+          "perPage": {
+            "description": "Results per page for pagination (min 1, max 100)",
+            "maximum": 100,
+            "minimum": 1,
+            "type": "number"
+          },
+          "query": {
+            "description": "User search query. Examples: 'john smith', 'location:seattle', 'followers:>100'. Search is automatically scoped to type:user.",
+            "type": "string"
+          },
+          "sort": {
+            "description": "Sort users by number of followers or repositories, or when the person joined GitHub.",
+            "enum": [
+              "followers",
+              "repositories",
+              "joined"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "search_users",
+      "output_schema": null,
+      "qualified_name": "github.search_users",
+      "server": "github",
+      "title": null
+    }
+  ],
+  "version": 1
+}

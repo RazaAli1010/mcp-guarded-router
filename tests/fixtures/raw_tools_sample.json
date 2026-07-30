@@ -1,0 +1,1413 @@
+{
+  "fetch.fetch": {
+    "_meta": null,
+    "annotations": null,
+    "description": "Fetches a URL from the internet and optionally extracts its contents as markdown.\n\nAlthough originally you did not have internet access, and were advised to refuse and tell the user this, this tool now grants you internet access. Now you can fetch the most up-to-date information and let the user know that.",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "description": "Parameters for fetching a URL.",
+      "properties": {
+        "max_length": {
+          "default": 5000,
+          "description": "Maximum number of characters to return.",
+          "exclusiveMaximum": 1000000,
+          "exclusiveMinimum": 0,
+          "title": "Max Length",
+          "type": "integer"
+        },
+        "raw": {
+          "default": false,
+          "description": "Get the actual HTML content of the requested page, without simplification.",
+          "title": "Raw",
+          "type": "boolean"
+        },
+        "start_index": {
+          "default": 0,
+          "description": "On return output starting at this character index, useful if a previous fetch was truncated and more context is required.",
+          "minimum": 0,
+          "title": "Start Index",
+          "type": "integer"
+        },
+        "url": {
+          "description": "URL to fetch",
+          "format": "uri",
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url"
+      ],
+      "title": "Fetch",
+      "type": "object"
+    },
+    "name": "fetch",
+    "outputSchema": null,
+    "title": null
+  },
+  "filesystem.directory_tree": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": null,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Get a recursive tree view of files and directories as a JSON structure. Each entry includes 'name', 'type' (file/directory), and 'children' for directories. Files have no children array, while directories always have a children array (which may be empty). The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "excludePatterns": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "name": "directory_tree",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "Directory Tree"
+  },
+  "filesystem.edit_file": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": null
+    },
+    "description": "Make line-based edits to a text file. Each edit replaces exact line sequences with new content. Returns a git-style diff showing the changes made. Only works within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "dryRun": {
+          "default": false,
+          "description": "Preview changes using git-style diff format",
+          "type": "boolean"
+        },
+        "edits": {
+          "items": {
+            "properties": {
+              "newText": {
+                "description": "Text to replace with",
+                "type": "string"
+              },
+              "oldText": {
+                "description": "Text to search for - must match exactly",
+                "type": "string"
+              }
+            },
+            "required": [
+              "oldText",
+              "newText"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "edits"
+      ],
+      "type": "object"
+    },
+    "name": "edit_file",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "Edit File"
+  },
+  "filesystem.list_directory": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": null,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Get a detailed listing of all files and directories in a specified path. Results clearly distinguish between files and directories with [FILE] and [DIR] prefixes. This tool is essential for understanding directory structure and finding specific files within a directory. Only works within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "name": "list_directory",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "List Directory"
+  },
+  "filesystem.move_file": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": null
+    },
+    "description": "Move or rename files and directories. Can move files between directories and rename them in a single operation. If the destination exists, the operation will fail. Works across different directories and can be used for simple renaming within the same directory. Both source and destination must be within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "destination": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "destination"
+      ],
+      "type": "object"
+    },
+    "name": "move_file",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "Move File"
+  },
+  "filesystem.read_text_file": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": null,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Read the complete contents of a file from the file system as text. Handles various text encodings and provides detailed error messages if the file cannot be read. Use this tool when you need to examine the contents of a single file. Use the 'head' parameter to read only the first N lines of a file, or the 'tail' parameter to read only the last N lines of a file. Operates on the file as text regardless of extension. Only works within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "head": {
+          "description": "If provided, returns only the first N lines of the file",
+          "type": "number"
+        },
+        "path": {
+          "type": "string"
+        },
+        "tail": {
+          "description": "If provided, returns only the last N lines of the file",
+          "type": "number"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "name": "read_text_file",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "Read Text File"
+  },
+  "filesystem.search_files": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": null,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Recursively search for files and directories matching a pattern. The patterns should be glob-style patterns that match paths relative to the working directory. Use pattern like '*.ext' to match files in current directory, and '**/*.ext' to match files in all subdirectories. Returns full paths to all matching items. Great for finding files when you don't know their exact location. Only searches within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "excludePatterns": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": "string"
+        },
+        "pattern": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "pattern"
+      ],
+      "type": "object"
+    },
+    "name": "search_files",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "Search Files"
+  },
+  "filesystem.write_file": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": null
+    },
+    "description": "Create a new file or completely overwrite an existing file with new content. Use with caution as it will overwrite existing files without warning. Handles text content with proper encoding. Only works within allowed directories.",
+    "execution": {
+      "taskSupport": "forbidden"
+    },
+    "icons": null,
+    "inputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "properties": {
+        "content": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ],
+      "type": "object"
+    },
+    "name": "write_file",
+    "outputSchema": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "additionalProperties": false,
+      "properties": {
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "content"
+      ],
+      "type": "object"
+    },
+    "title": "Write File"
+  },
+  "git.git_add": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": null
+    },
+    "description": "Adds file contents to the staging area",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "properties": {
+        "files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Files",
+          "type": "array"
+        },
+        "repo_path": {
+          "title": "Repo Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_path",
+        "files"
+      ],
+      "title": "GitAdd",
+      "type": "object"
+    },
+    "name": "git_add",
+    "outputSchema": null,
+    "title": null
+  },
+  "git.git_commit": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": false,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": null
+    },
+    "description": "Records changes to the repository",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "properties": {
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "repo_path": {
+          "title": "Repo Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_path",
+        "message"
+      ],
+      "title": "GitCommit",
+      "type": "object"
+    },
+    "name": "git_commit",
+    "outputSchema": null,
+    "title": null
+  },
+  "git.git_diff": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Shows differences between branches or commits",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "properties": {
+        "context_lines": {
+          "default": 3,
+          "title": "Context Lines",
+          "type": "integer"
+        },
+        "repo_path": {
+          "title": "Repo Path",
+          "type": "string"
+        },
+        "target": {
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_path",
+        "target"
+      ],
+      "title": "GitDiff",
+      "type": "object"
+    },
+    "name": "git_diff",
+    "outputSchema": null,
+    "title": null
+  },
+  "git.git_log": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Shows the commit logs",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "properties": {
+        "end_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "End timestamp for filtering commits. Accepts: ISO 8601 format (e.g., '2024-01-15T14:30:25'), relative dates (e.g., '2 weeks ago', 'yesterday'), or absolute dates (e.g., '2024-01-15', 'Jan 15 2024')",
+          "title": "End Timestamp"
+        },
+        "max_count": {
+          "default": 10,
+          "title": "Max Count",
+          "type": "integer"
+        },
+        "repo_path": {
+          "title": "Repo Path",
+          "type": "string"
+        },
+        "start_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Start timestamp for filtering commits. Accepts: ISO 8601 format (e.g., '2024-01-15T14:30:25'), relative dates (e.g., '2 weeks ago', 'yesterday'), or absolute dates (e.g., '2024-01-15', 'Jan 15 2024')",
+          "title": "Start Timestamp"
+        }
+      },
+      "required": [
+        "repo_path"
+      ],
+      "title": "GitLog",
+      "type": "object"
+    },
+    "name": "git_log",
+    "outputSchema": null,
+    "title": null
+  },
+  "git.git_reset": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": true,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": false,
+      "title": null
+    },
+    "description": "Unstages all staged changes",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "properties": {
+        "repo_path": {
+          "title": "Repo Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_path"
+      ],
+      "title": "GitReset",
+      "type": "object"
+    },
+    "name": "git_reset",
+    "outputSchema": null,
+    "title": null
+  },
+  "git.git_status": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true,
+      "title": null
+    },
+    "description": "Shows the working tree status",
+    "execution": null,
+    "icons": null,
+    "inputSchema": {
+      "properties": {
+        "repo_path": {
+          "title": "Repo Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo_path"
+      ],
+      "title": "GitStatus",
+      "type": "object"
+    },
+    "name": "git_status",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.get_file_contents": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Get file or directory contents"
+    },
+    "description": "Get the contents of a file or directory from a GitHub repository",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABTklEQVRIie2UPUvDUBSGn5PW2qnYwUXExWhNpY2CUKT+BB10E3R0dnbrppuKLgouHbr5X5qlKRIFB+cuguBHj4O05KYfNsVJ+m7n3Hue54ZcrhDKQqGQTX1YVwg7QIbx0gh8b7VTJMMrqS+5RtgD7oDX2GhhC6UcbhkCVLZVuX1sesex4YCdX6uAGgIrsicjlrTGgQ9KVPDnmQgmgongPwgkXNiOq8ADMAtkx4UGvtflJvus20ANeIlN/vW5/kkt8L3D2HD6P9dRgSI8dQcc9w1IR3acBE3vbFSp8ZMVnoFSqJ/unZDe3pAYXyDIJarn9opbDZrewaAh2y7Oy5S1r6h5QG2Xxbw3piDw6xe244oKyxFmC5ihc+tS1qaqngKJyAEBGmZvSGzHVYT790T7aPozsaFoFZGboFGvDJsbOYuOuxuuc7n1uaV8sRSH8Q1DUVLnYLty3gAAAABJRU5ErkJggg==",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAA+ElEQVRIie2WLU5DQRRGzwUEirQCQ9BsoSGtZQHgSFgIsg4JXQCGP8V2QCBIEATZkJDgOJi+MJnMo30TFHmfmzvzfeeKyZ2BROpQvVHfrddDmhkZ4BY4Ai6BD7prAowjIoq7i85nFcGNf6qa1tayM1vAvBZQUg74c/WAHtAD/gMgn6YCT8A2MKwOTaZpCfAF3AGvFdlLx7XqdUVw4186rgWeE8Nn4cU67QLNAS/ASG3qmwVPqdaqjWw9A86BK+CkzaTuAseFBse/AiLiQg1gLzs3Bwb8XIp94AxYL/Af2xordap6v/htHKhv6nTlgBUAh9l6Rx11yfgG8ne/zwh2OysAAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "owner": {
+          "description": "Repository owner (username or organization)",
+          "type": "string",
+          "x-mcp-header": "owner"
+        },
+        "path": {
+          "default": "/",
+          "description": "Path to file/directory",
+          "type": "string"
+        },
+        "ref": {
+          "description": "Accepts optional git refs such as `refs/tags/{tag}`, `refs/heads/{branch}` or `refs/pull/{pr_number}/head`",
+          "type": "string"
+        },
+        "repo": {
+          "description": "Repository name",
+          "type": "string",
+          "x-mcp-header": "repo"
+        },
+        "sha": {
+          "description": "Accepts optional commit SHA. If specified, it will be used instead of ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "repo"
+      ],
+      "type": "object"
+    },
+    "name": "get_file_contents",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.issue_read": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Get issue details"
+    },
+    "description": "Get information about a specific issue in a GitHub repository.",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAC2UlEQVRIicWVMUyTaRjHf/+vVUpOJOdilOYoUvVreq2CDmLOwdlAS5xMbrrhBifjYG7QjYuJw108nZx1huLgYlw0QshxChUK2koxHHcuCmgsFfieG0or3kGPSoz/8X3f5/97nvfN8z7wmaVqm9FodFfR/EnMugy5giCAwYwgI9Ff9Hl9L9Lp1zUBgsGO+rqGwnlhF4CdwBSyAUwvS1G220zHBSFgHtmVxYWvfp2ZGSj8LyAcjgfZphTQZtAr7OdsZvSP9RIJR+LtQhcNusF+d1aUfPp05M8NAavmg8AOk3cmN56+s1Hpa7U/cviUYbcw3jgex9ZCKoBgsKM+0PDuAdBq2He5zOiTzZiXtc+NxRw598GeLRcWTuTz+UUAp3ygrqFwHmgzeWdqNQd4PpFOy/gedNQfaDz3UQXRaHRX0fNPGdzNZUZO12q+VuHIoV7g5Hu/1/IinX7tABTNnwR2SvRsxRzAzOsBGuuWfAkoX5FZFzCVHR95tFVAbiI9DEwj6wLwl5YVMTRYLTDsxjuRrgGYYz/kxkbvbXRWMOBB24cKYI9ks1X8hXQDaAaa5XG9WjImZgV71wI+m8qAv8y0t1pSmP0ITANTmHO2qqvRZDALlTdgHKyjWkx2YvQ2cHtTacMxYBhWK5DoF4TCkXj7Jg02VKsbOwI0Y+qvALZrOQXMC13cKkDSJWBuJUCqAhgbG3uF7IpBcn/k8KlPNQ+78U5QQuhy/vHjuQoAYPndwi9gw4bd2ufGYrWatxz8No50ExhaKsz9Vl6vAPL5/KKzoiTGG0fOg1oqCbvxTp/juw/M+zynu/yTwjoD58CBQ02ez/pAR4E+M69ntf3/o1Y3dqR050oAQz7P6Z6cfPRRw647MkOhUMAfaDyH+AloBKYNPRT292rQHoMOSp09J3TZlt5ezWazxX97VR3638RiX9ct+RImSyBcrDT0ETMyMp4ptRIgVX7QL6J/ALSUEwJ5rdg2AAAAAElFTkSuQmCC",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABxElEQVRIibWVvW4TURCFv0vlNEDcIHAkKAERJOIKSjoUArwBPwUFFaKIIngAJARCPIgdh4cgRBYt6ZIAEYEqdhpEw0fhCbkKa68dxyNtsfNzzpnZu3NhwpYGBdUqcA+4A1wEZiK0DawD74FWSml3JAJ1CngGLAIngU1gFfgZKWeAG8AFoAu8At6mlH6VtqTOqJ/UP2pDnRuQO6c27VlbrQ0Dvq121Fulag7q5qPmW18SdSqUd9Qrw4Jn9bNR21YrRQkvYixDKy/AuB3jWjocqKpdtXFU8AxrOTqZzp2PgvnaMRDUA+tB7mypG+OCZ3hbahPgRPguAR9LihaicEu9WcKxClzOi/fU1wPAk7rjgX0uEfNG3cs7mJjtE+wA5/olpZQEHgNf6K2NJyW4NeD7v7c4WptjSc0svlMjdzyM2fbdOyOA7x/T+7mzGj9H8xgIWuquevpw4HmsivkxwBdC/WJRsBKLqqPOHgH8aqybtcJlF0m1WLndUToJ5V31q9r3NOYk7Wh1Wa0PyK3HzA3l/4H3uzIrwFNgCThF7/x/AH5EylngOnAe6AAvgXcppd9DEWRE08DdeIou/RVgJaXUGYQzUfsL+zmwV7BtIq0AAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "issue_number": {
+          "description": "The number of the issue",
+          "type": "number"
+        },
+        "method": {
+          "description": "The read operation to perform on a single issue.\nOptions are:\n1. get - Get issue details. Also returns best-effort hierarchy flags (`has_parent`, `has_children`); `parent` and `sub_issues_summary` are optional relationship summaries.\n2. get_comments - Get issue comments.\n3. get_sub_issues - Get sub-issues (children) of the issue.\n4. get_parent - Get the parent issue, if this issue is a sub-issue of another.\n5. get_labels - Get labels assigned to the issue.\n",
+          "enum": [
+            "get",
+            "get_comments",
+            "get_sub_issues",
+            "get_parent",
+            "get_labels"
+          ],
+          "type": "string"
+        },
+        "owner": {
+          "description": "The owner of the repository",
+          "type": "string",
+          "x-mcp-header": "owner"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "repo": {
+          "description": "The name of the repository",
+          "type": "string",
+          "x-mcp-header": "repo"
+        }
+      },
+      "required": [
+        "method",
+        "owner",
+        "repo",
+        "issue_number"
+      ],
+      "type": "object"
+    },
+    "name": "issue_read",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.list_commits": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "List commits"
+    },
+    "description": "Get list of commits of a branch in a GitHub repository. Returns at least 30 results per page by default, but can return more if specified using the perPage parameter (up to 100).",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABTklEQVRIie2UPUvDUBSGn5PW2qnYwUXExWhNpY2CUKT+BB10E3R0dnbrppuKLgouHbr5X5qlKRIFB+cuguBHj4O05KYfNsVJ+m7n3Hue54ZcrhDKQqGQTX1YVwg7QIbx0gh8b7VTJMMrqS+5RtgD7oDX2GhhC6UcbhkCVLZVuX1sesex4YCdX6uAGgIrsicjlrTGgQ9KVPDnmQgmgongPwgkXNiOq8ADMAtkx4UGvtflJvus20ANeIlN/vW5/kkt8L3D2HD6P9dRgSI8dQcc9w1IR3acBE3vbFSp8ZMVnoFSqJ/unZDe3pAYXyDIJarn9opbDZrewaAh2y7Oy5S1r6h5QG2Xxbw3piDw6xe244oKyxFmC5ihc+tS1qaqngKJyAEBGmZvSGzHVYT790T7aPozsaFoFZGboFGvDJsbOYuOuxuuc7n1uaV8sRSH8Q1DUVLnYLty3gAAAABJRU5ErkJggg==",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAA+ElEQVRIie2WLU5DQRRGzwUEirQCQ9BsoSGtZQHgSFgIsg4JXQCGP8V2QCBIEATZkJDgOJi+MJnMo30TFHmfmzvzfeeKyZ2BROpQvVHfrddDmhkZ4BY4Ai6BD7prAowjIoq7i85nFcGNf6qa1tayM1vAvBZQUg74c/WAHtAD/gMgn6YCT8A2MKwOTaZpCfAF3AGvFdlLx7XqdUVw4186rgWeE8Nn4cU67QLNAS/ASG3qmwVPqdaqjWw9A86BK+CkzaTuAseFBse/AiLiQg1gLzs3Bwb8XIp94AxYL/Af2xordap6v/htHKhv6nTlgBUAh9l6Rx11yfgG8ne/zwh2OysAAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "author": {
+          "description": "Author username or email address to filter commits by",
+          "type": "string"
+        },
+        "owner": {
+          "description": "Repository owner",
+          "type": "string",
+          "x-mcp-header": "owner"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "path": {
+          "description": "Only commits containing this file path will be returned",
+          "type": "string"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "repo": {
+          "description": "Repository name",
+          "type": "string",
+          "x-mcp-header": "repo"
+        },
+        "sha": {
+          "description": "Commit SHA, branch or tag name to list commits of. If not provided, uses the default branch of the repository. If a commit SHA is provided, will list commits up to that SHA.",
+          "type": "string"
+        },
+        "since": {
+          "description": "Only commits after this date will be returned (ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DD)",
+          "type": "string"
+        },
+        "until": {
+          "description": "Only commits before this date will be returned (ISO 8601 format: YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DD)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "repo"
+      ],
+      "type": "object"
+    },
+    "name": "list_commits",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.list_issues": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "List issues"
+    },
+    "description": "List issues in a GitHub repository. For pagination, use the 'endCursor' from the previous response's 'pageInfo' in the 'after' parameter.",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAC2UlEQVRIicWVMUyTaRjHf/+vVUpOJOdilOYoUvVreq2CDmLOwdlAS5xMbrrhBifjYG7QjYuJw108nZx1huLgYlw0QshxChUK2koxHHcuCmgsFfieG0or3kGPSoz/8X3f5/97nvfN8z7wmaVqm9FodFfR/EnMugy5giCAwYwgI9Ff9Hl9L9Lp1zUBgsGO+rqGwnlhF4CdwBSyAUwvS1G220zHBSFgHtmVxYWvfp2ZGSj8LyAcjgfZphTQZtAr7OdsZvSP9RIJR+LtQhcNusF+d1aUfPp05M8NAavmg8AOk3cmN56+s1Hpa7U/cviUYbcw3jgex9ZCKoBgsKM+0PDuAdBq2He5zOiTzZiXtc+NxRw598GeLRcWTuTz+UUAp3ygrqFwHmgzeWdqNQd4PpFOy/gedNQfaDz3UQXRaHRX0fNPGdzNZUZO12q+VuHIoV7g5Hu/1/IinX7tABTNnwR2SvRsxRzAzOsBGuuWfAkoX5FZFzCVHR95tFVAbiI9DEwj6wLwl5YVMTRYLTDsxjuRrgGYYz/kxkbvbXRWMOBB24cKYI9ks1X8hXQDaAaa5XG9WjImZgV71wI+m8qAv8y0t1pSmP0ITANTmHO2qqvRZDALlTdgHKyjWkx2YvQ2cHtTacMxYBhWK5DoF4TCkXj7Jg02VKsbOwI0Y+qvALZrOQXMC13cKkDSJWBuJUCqAhgbG3uF7IpBcn/k8KlPNQ+78U5QQuhy/vHjuQoAYPndwi9gw4bd2ufGYrWatxz8No50ExhaKsz9Vl6vAPL5/KKzoiTGG0fOg1oqCbvxTp/juw/M+zynu/yTwjoD58CBQ02ez/pAR4E+M69ntf3/o1Y3dqR050oAQz7P6Z6cfPRRw647MkOhUMAfaDyH+AloBKYNPRT292rQHoMOSp09J3TZlt5ezWazxX97VR3638RiX9ct+RImSyBcrDT0ETMyMp4ptRIgVX7QL6J/ALSUEwJ5rdg2AAAAAElFTkSuQmCC",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABxElEQVRIibWVvW4TURCFv0vlNEDcIHAkKAERJOIKSjoUArwBPwUFFaKIIngAJARCPIgdh4cgRBYt6ZIAEYEqdhpEw0fhCbkKa68dxyNtsfNzzpnZu3NhwpYGBdUqcA+4A1wEZiK0DawD74FWSml3JAJ1CngGLAIngU1gFfgZKWeAG8AFoAu8At6mlH6VtqTOqJ/UP2pDnRuQO6c27VlbrQ0Dvq121Fulag7q5qPmW18SdSqUd9Qrw4Jn9bNR21YrRQkvYixDKy/AuB3jWjocqKpdtXFU8AxrOTqZzp2PgvnaMRDUA+tB7mypG+OCZ3hbahPgRPguAR9LihaicEu9WcKxClzOi/fU1wPAk7rjgX0uEfNG3cs7mJjtE+wA5/olpZQEHgNf6K2NJyW4NeD7v7c4WptjSc0svlMjdzyM2fbdOyOA7x/T+7mzGj9H8xgIWuquevpw4HmsivkxwBdC/WJRsBKLqqPOHgH8aqybtcJlF0m1WLndUToJ5V31q9r3NOYk7Wh1Wa0PyK3HzA3l/4H3uzIrwFNgCThF7/x/AH5EylngOnAe6AAvgXcppd9DEWRE08DdeIou/RVgJaXUGYQzUfsL+zmwV7BtIq0AAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "after": {
+          "description": "Cursor for pagination. Use the cursor from the previous response.",
+          "type": "string"
+        },
+        "direction": {
+          "description": "Order direction. If provided, the 'orderBy' also needs to be provided.",
+          "enum": [
+            "ASC",
+            "DESC"
+          ],
+          "type": "string"
+        },
+        "field_filters": {
+          "description": "Filter by custom issue field values. Each entry takes a field_name and a value; the server looks up the field and coerces the value to its type (single-select option name, text, number, or YYYY-MM-DD date).",
+          "items": {
+            "properties": {
+              "field_name": {
+                "description": "Name of the custom field (e.g. \"Priority\"). Case-insensitive.",
+                "type": "string"
+              },
+              "value": {
+                "description": "Value to filter on. For single-select fields, the option name (e.g. \"P1\"). For dates, YYYY-MM-DD. For numbers, the numeric value as a string. For text, the text value.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "field_name",
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "labels": {
+          "description": "Filter by labels",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "orderBy": {
+          "description": "Order issues by field. If provided, the 'direction' also needs to be provided.",
+          "enum": [
+            "CREATED_AT",
+            "UPDATED_AT",
+            "COMMENTS"
+          ],
+          "type": "string"
+        },
+        "owner": {
+          "description": "Repository owner",
+          "type": "string",
+          "x-mcp-header": "owner"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "repo": {
+          "description": "Repository name",
+          "type": "string",
+          "x-mcp-header": "repo"
+        },
+        "since": {
+          "description": "Filter by date (ISO 8601 timestamp)",
+          "type": "string"
+        },
+        "state": {
+          "description": "Filter by state, by default both open and closed issues are returned when not provided",
+          "enum": [
+            "OPEN",
+            "CLOSED"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "owner",
+        "repo"
+      ],
+      "type": "object"
+    },
+    "name": "list_issues",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.search_code": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Search code"
+    },
+    "description": "Fast and precise code search across ALL GitHub repositories using GitHub's native search engine. Best for finding exact symbols, functions, classes, or specific code patterns.",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABTklEQVRIie2UPUvDUBSGn5PW2qnYwUXExWhNpY2CUKT+BB10E3R0dnbrppuKLgouHbr5X5qlKRIFB+cuguBHj4O05KYfNsVJ+m7n3Hue54ZcrhDKQqGQTX1YVwg7QIbx0gh8b7VTJMMrqS+5RtgD7oDX2GhhC6UcbhkCVLZVuX1sesex4YCdX6uAGgIrsicjlrTGgQ9KVPDnmQgmgongPwgkXNiOq8ADMAtkx4UGvtflJvus20ANeIlN/vW5/kkt8L3D2HD6P9dRgSI8dQcc9w1IR3acBE3vbFSp8ZMVnoFSqJ/unZDe3pAYXyDIJarn9opbDZrewaAh2y7Oy5S1r6h5QG2Xxbw3piDw6xe244oKyxFmC5ihc+tS1qaqngKJyAEBGmZvSGzHVYT790T7aPozsaFoFZGboFGvDJsbOYuOuxuuc7n1uaV8sRSH8Q1DUVLnYLty3gAAAABJRU5ErkJggg==",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAA+ElEQVRIie2WLU5DQRRGzwUEirQCQ9BsoSGtZQHgSFgIsg4JXQCGP8V2QCBIEATZkJDgOJi+MJnMo30TFHmfmzvzfeeKyZ2BROpQvVHfrddDmhkZ4BY4Ai6BD7prAowjIoq7i85nFcGNf6qa1tayM1vAvBZQUg74c/WAHtAD/gMgn6YCT8A2MKwOTaZpCfAF3AGvFdlLx7XqdUVw4186rgWeE8Nn4cU67QLNAS/ASG3qmwVPqdaqjWw9A86BK+CkzaTuAseFBse/AiLiQg1gLzs3Bwb8XIp94AxYL/Af2xordap6v/htHKhv6nTlgBUAh9l6Rx11yfgG8ne/zwh2OysAAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "order": {
+          "description": "Sort order for results",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "query": {
+          "description": "Search query (GitHub code search REST). Implicit AND between terms; supports `OR`, `NOT`, and `\"quoted phrase\"` for exact match. Qualifiers: `repo:owner/repo`, `org:`, `user:`, `language:`, `path:dir` (prefix match), `filename:exact.ext`, `extension:`, `in:file`, `in:path`, `size:`, `is:archived`, `is:fork`. Max 256 chars. Examples: `WithContext language:go org:github`; `\"package main\" repo:o/r`; `func extension:go path:cmd repo:o/r`; `NOT TODO language:go repo:o/r`.",
+          "type": "string"
+        },
+        "sort": {
+          "description": "Sort field ('indexed' only)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_code",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.search_commits": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Search commits"
+    },
+    "description": "Search for commits across GitHub repositories using GitHub's commit search syntax. Useful for finding specific changes, authors, or messages across one or many repositories. Searches the default branch only.",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABTklEQVRIie2UPUvDUBSGn5PW2qnYwUXExWhNpY2CUKT+BB10E3R0dnbrppuKLgouHbr5X5qlKRIFB+cuguBHj4O05KYfNsVJ+m7n3Hue54ZcrhDKQqGQTX1YVwg7QIbx0gh8b7VTJMMrqS+5RtgD7oDX2GhhC6UcbhkCVLZVuX1sesex4YCdX6uAGgIrsicjlrTGgQ9KVPDnmQgmgongPwgkXNiOq8ADMAtkx4UGvtflJvus20ANeIlN/vW5/kkt8L3D2HD6P9dRgSI8dQcc9w1IR3acBE3vbFSp8ZMVnoFSqJ/unZDe3pAYXyDIJarn9opbDZrewaAh2y7Oy5S1r6h5QG2Xxbw3piDw6xe244oKyxFmC5ihc+tS1qaqngKJyAEBGmZvSGzHVYT790T7aPozsaFoFZGboFGvDJsbOYuOuxuuc7n1uaV8sRSH8Q1DUVLnYLty3gAAAABJRU5ErkJggg==",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAA+ElEQVRIie2WLU5DQRRGzwUEirQCQ9BsoSGtZQHgSFgIsg4JXQCGP8V2QCBIEATZkJDgOJi+MJnMo30TFHmfmzvzfeeKyZ2BROpQvVHfrddDmhkZ4BY4Ai6BD7prAowjIoq7i85nFcGNf6qa1tayM1vAvBZQUg74c/WAHtAD/gMgn6YCT8A2MKwOTaZpCfAF3AGvFdlLx7XqdUVw4186rgWeE8Nn4cU67QLNAS/ASG3qmwVPqdaqjWw9A86BK+CkzaTuAseFBse/AiLiQg1gLzs3Bwb8XIp94AxYL/Af2xordap6v/htHKhv6nTlgBUAh9l6Rx11yfgG8ne/zwh2OysAAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "order": {
+          "description": "Sort order",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "query": {
+          "description": "Commit search query (GitHub commit search REST). Searches commit messages on the default branch only. Scope the search with `repo:owner/repo`, `org:`, or `user:` (queries without a scope qualifier match across all of GitHub and are usually not what you want). Other qualifiers: `author:`, `committer:`, `author-name:`, `committer-name:`, `author-email:`, `committer-email:`, `author-date:`, `committer-date:` (supports `>`, `<`, `>=`, `<=`, and `YYYY-MM-DD..YYYY-MM-DD` ranges), `merge:true|false`, `hash:`, `tree:`, `parent:`, `is:public`. Examples: `repo:owner/repo fix panic`; `org:github author:defunkt committer-date:>=2024-01-01`; `\"refactor cache\" repo:o/r`; `hash:abc1234 repo:o/r`.",
+          "type": "string"
+        },
+        "sort": {
+          "description": "Sort by author or committer date (defaults to best match)",
+          "enum": [
+            "author-date",
+            "committer-date"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_commits",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.search_issues": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Search issues"
+    },
+    "description": "Search for issues in GitHub repositories using issues search syntax already scoped to is:issue",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAC2UlEQVRIicWVMUyTaRjHf/+vVUpOJOdilOYoUvVreq2CDmLOwdlAS5xMbrrhBifjYG7QjYuJw108nZx1huLgYlw0QshxChUK2koxHHcuCmgsFfieG0or3kGPSoz/8X3f5/97nvfN8z7wmaVqm9FodFfR/EnMugy5giCAwYwgI9Ff9Hl9L9Lp1zUBgsGO+rqGwnlhF4CdwBSyAUwvS1G220zHBSFgHtmVxYWvfp2ZGSj8LyAcjgfZphTQZtAr7OdsZvSP9RIJR+LtQhcNusF+d1aUfPp05M8NAavmg8AOk3cmN56+s1Hpa7U/cviUYbcw3jgex9ZCKoBgsKM+0PDuAdBq2He5zOiTzZiXtc+NxRw598GeLRcWTuTz+UUAp3ygrqFwHmgzeWdqNQd4PpFOy/gedNQfaDz3UQXRaHRX0fNPGdzNZUZO12q+VuHIoV7g5Hu/1/IinX7tABTNnwR2SvRsxRzAzOsBGuuWfAkoX5FZFzCVHR95tFVAbiI9DEwj6wLwl5YVMTRYLTDsxjuRrgGYYz/kxkbvbXRWMOBB24cKYI9ks1X8hXQDaAaa5XG9WjImZgV71wI+m8qAv8y0t1pSmP0ITANTmHO2qqvRZDALlTdgHKyjWkx2YvQ2cHtTacMxYBhWK5DoF4TCkXj7Jg02VKsbOwI0Y+qvALZrOQXMC13cKkDSJWBuJUCqAhgbG3uF7IpBcn/k8KlPNQ+78U5QQuhy/vHjuQoAYPndwi9gw4bd2ufGYrWatxz8No50ExhaKsz9Vl6vAPL5/KKzoiTGG0fOg1oqCbvxTp/juw/M+zynu/yTwjoD58CBQ02ez/pAR4E+M69ntf3/o1Y3dqR050oAQz7P6Z6cfPRRw647MkOhUMAfaDyH+AloBKYNPRT292rQHoMOSp09J3TZlt5ezWazxX97VR3638RiX9ct+RImSyBcrDT0ETMyMp4ptRIgVX7QL6J/ALSUEwJ5rdg2AAAAAElFTkSuQmCC",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABxElEQVRIibWVvW4TURCFv0vlNEDcIHAkKAERJOIKSjoUArwBPwUFFaKIIngAJARCPIgdh4cgRBYt6ZIAEYEqdhpEw0fhCbkKa68dxyNtsfNzzpnZu3NhwpYGBdUqcA+4A1wEZiK0DawD74FWSml3JAJ1CngGLAIngU1gFfgZKWeAG8AFoAu8At6mlH6VtqTOqJ/UP2pDnRuQO6c27VlbrQ0Dvq121Fulag7q5qPmW18SdSqUd9Qrw4Jn9bNR21YrRQkvYixDKy/AuB3jWjocqKpdtXFU8AxrOTqZzp2PgvnaMRDUA+tB7mypG+OCZ3hbahPgRPguAR9LihaicEu9WcKxClzOi/fU1wPAk7rjgX0uEfNG3cs7mJjtE+wA5/olpZQEHgNf6K2NJyW4NeD7v7c4WptjSc0svlMjdzyM2fbdOyOA7x/T+7mzGj9H8xgIWuquevpw4HmsivkxwBdC/WJRsBKLqqPOHgH8aqybtcJlF0m1WLndUToJ5V31q9r3NOYk7Wh1Wa0PyK3HzA3l/4H3uzIrwFNgCThF7/x/AH5EylngOnAe6AAvgXcppd9DEWRE08DdeIou/RVgJaXUGYQzUfsL+zmwV7BtIq0AAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "order": {
+          "description": "Sort order",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "owner": {
+          "description": "Optional repository owner. If provided with repo, only issues for this repository are listed.",
+          "type": "string",
+          "x-mcp-header": "owner"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "query": {
+          "description": "Search query using GitHub issues search syntax",
+          "type": "string"
+        },
+        "repo": {
+          "description": "Optional repository name. If provided with owner, only issues for this repository are listed.",
+          "type": "string",
+          "x-mcp-header": "repo"
+        },
+        "sort": {
+          "description": "Sort field by number of matches of categories, defaults to best match",
+          "enum": [
+            "comments",
+            "reactions",
+            "reactions-+1",
+            "reactions--1",
+            "reactions-smile",
+            "reactions-thinking_face",
+            "reactions-heart",
+            "reactions-tada",
+            "interactions",
+            "created",
+            "updated"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_issues",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.search_pull_requests": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Search pull requests"
+    },
+    "description": "Search for pull requests in GitHub repositories using issues search syntax already scoped to is:pr",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAACwUlEQVRIie2Vz28UZRjHP993pi0QIC3YahNjirtmd3bS3Q1eUHvQEPUiEv8A4kXjwRJ78MCFBLjBBRKCHowHE38cNCbGGx6IUoKiodtNpoNmTJp4oSJNQ3pw29l5POxus2wo3QTwxPc0887zfD7zvu9kXnjEUfdNrjj5vJOmMP4e9JrfR1G02tuQD8tvgpck0dxCPwK30ViqnJTcr4bOmfRlI/PrhUJ5313woDpDpu8ss7f6nYHrvDnGcYlPsoY/bKaXwHY3HWfvgmNnMX0zvMM7069A3c3pkEYWa7UVgFxQPSfs7SSeH3k2rEy5jMubMBoG1yQ+SBbm53of+gCybMkk/H8VAFdbZisZLAFsJ11oyL+BUURcwrjWAZixXeIwxs/5UuVAr0QAYRjubGR+HWy3mb6QCIBXQe8nce0jgIkwfMo3/xLG085x8I9ofkMyUa0O+w2rgS0mcf3lboEDiKJo1cvsIDDr4D1DhTb8407hYhTdTJW+AvrdMnuhG9Je1m9BBzbfjXbyQcXypeqJLQt7+0rVE/mgYr3j7l7FDzOPBY8FDx6vc1EolPeNjI5/Jpgw7Lm9o+Pry//c/K0PhnLFyrSMDxE79jwxvn9079gvt28vrUD7V1EoFHalbltd2C7DfS4sAF4DTSdx7cL96LliZVriPPADuL+geRh0Z8il5SiKVn2ATENvCCYw78U/b8xdBcgHlYuGHQXuK5A4ClxM4vnXW8Lqp5JdWWt6h4CvWnsgxgDSbRZ3Gg0tCJ7sY4nGwDZOt/WBZtzN9FswLgM2sGann5mcPDaw5pWEHQH7cUu86SdkR3LF6tfrA814MNVpwNrM1leUxPXrSKfMeHcwdctyNotY8c3NbMX3LJsB3ZHsymDqlkHvYHYyievXWxPpSj4o75eYIuPWZof+vRKG4c61pncIx6gZsx34/5L/ACy3ElqUYhuvAAAAAElFTkSuQmCC",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABn0lEQVRIie2Vvy5EURDGvyMUkhUU/pS2Q2clwvIKqL0Cm9ArrBcQShJPoLFR2YaIhIjQ7a7E39IiCgqVn8KsPY697E3oTHPumTPf990z986M9Mfm/A0wKGlMUlnSlnPuOQQAE5LOnXOFWErAIvBK1S6BZBAzZ2fzcckHjXwVaAXSwD2wWYN8A2iKK1ABt3m+ZeDRnseIthdgDxioxd1o662tfZIO7Lnf8xcklST1StqRdORxNEualHQIDDvnTmvdIGE5vwdWgLy93bQX0w0UgSdgKMC3AdfA7ndpSgKbduUbYBoI/7Ju4BiYrYFfAl4iBbxAgOyPgV9xWYDQ3xCXKK79C/wL/KJZoeW8QpsJCy0C54AMULaGmQu7sIAW4MpaxTKwbQU3U4dAxmLzwLpxXAIJP2jKgkY8Xx4o1SFwBmx7+7RxTUnVb9Bpa9HDFiR1/SRgWH+6FT3/h2qK6sBpB0aBB7yB880NcpaWtGHXjCsVBmb5PDIvgJ46BJKW84q9AguV87Adp/Q+9O8UMfQjRBKSxiV1SNp3zp3Ug/sVewPruexhKwhGXQAAAABJRU5ErkJggg==",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "order": {
+          "description": "Sort order",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "owner": {
+          "description": "Optional repository owner. If provided with repo, only pull requests for this repository are listed.",
+          "type": "string",
+          "x-mcp-header": "owner"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "query": {
+          "description": "Search query using GitHub pull request search syntax",
+          "type": "string"
+        },
+        "repo": {
+          "description": "Optional repository name. If provided with owner, only pull requests for this repository are listed.",
+          "type": "string",
+          "x-mcp-header": "repo"
+        },
+        "sort": {
+          "description": "Sort field by number of matches of categories, defaults to best match",
+          "enum": [
+            "comments",
+            "reactions",
+            "reactions-+1",
+            "reactions--1",
+            "reactions-smile",
+            "reactions-thinking_face",
+            "reactions-heart",
+            "reactions-tada",
+            "interactions",
+            "created",
+            "updated"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_pull_requests",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.search_repositories": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Search repositories"
+    },
+    "description": "Find GitHub repositories by name, description, readme, topics, or other metadata. Perfect for discovering projects, finding examples, or locating specific repositories across GitHub.",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAABTklEQVRIie2UPUvDUBSGn5PW2qnYwUXExWhNpY2CUKT+BB10E3R0dnbrppuKLgouHbr5X5qlKRIFB+cuguBHj4O05KYfNsVJ+m7n3Hue54ZcrhDKQqGQTX1YVwg7QIbx0gh8b7VTJMMrqS+5RtgD7oDX2GhhC6UcbhkCVLZVuX1sesex4YCdX6uAGgIrsicjlrTGgQ9KVPDnmQgmgongPwgkXNiOq8ADMAtkx4UGvtflJvus20ANeIlN/vW5/kkt8L3D2HD6P9dRgSI8dQcc9w1IR3acBE3vbFSp8ZMVnoFSqJ/unZDe3pAYXyDIJarn9opbDZrewaAh2y7Oy5S1r6h5QG2Xxbw3piDw6xe244oKyxFmC5ihc+tS1qaqngKJyAEBGmZvSGzHVYT790T7aPozsaFoFZGboFGvDJsbOYuOuxuuc7n1uaV8sRSH8Q1DUVLnYLty3gAAAABJRU5ErkJggg==",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAA+ElEQVRIie2WLU5DQRRGzwUEirQCQ9BsoSGtZQHgSFgIsg4JXQCGP8V2QCBIEATZkJDgOJi+MJnMo30TFHmfmzvzfeeKyZ2BROpQvVHfrddDmhkZ4BY4Ai6BD7prAowjIoq7i85nFcGNf6qa1tayM1vAvBZQUg74c/WAHtAD/gMgn6YCT8A2MKwOTaZpCfAF3AGvFdlLx7XqdUVw4186rgWeE8Nn4cU67QLNAS/ASG3qmwVPqdaqjWw9A86BK+CkzaTuAseFBse/AiLiQg1gLzs3Bwb8XIp94AxYL/Af2xordap6v/htHKhv6nTlgBUAh9l6Rx11yfgG8ne/zwh2OysAAAAASUVORK5CYII=",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "minimal_output": {
+          "default": true,
+          "description": "Return minimal repository information (default: true). When false, returns full GitHub API repository objects.",
+          "type": "boolean"
+        },
+        "order": {
+          "description": "Sort order",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "query": {
+          "description": "Repository search query. Examples: 'machine learning in:name stars:>1000 language:python', 'topic:react', 'user:facebook'. Supports advanced search syntax for precise filtering.",
+          "type": "string"
+        },
+        "sort": {
+          "description": "Sort repositories by field, defaults to best match",
+          "enum": [
+            "stars",
+            "forks",
+            "help-wanted-issues",
+            "updated"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_repositories",
+    "outputSchema": null,
+    "title": null
+  },
+  "github.search_users": {
+    "_meta": null,
+    "annotations": {
+      "destructiveHint": null,
+      "idempotentHint": false,
+      "openWorldHint": null,
+      "readOnlyHint": true,
+      "title": "Search users"
+    },
+    "description": "Find GitHub users by username, real name, or other profile information. Useful for locating developers, contributors, or team members.",
+    "execution": null,
+    "icons": [
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAADWklEQVRIidWTT2hcVRTGf+e+mUn9Q3WMqbbWgJ1JnMw4meiAUkoxIRG1IKK4ELqoVkQXUsVuXbropoq4EWykuBDURV2I0r9GrC0VopnXTGaefYkhDahBOg4SnSTv3eMiTphMJ6Spq57dPd+933e/794DN3rJWkA+n49W54MB4AE1aoyawqVS1xn4PPzfAsnUg48iOgyaaIJ8I7r/5wn3u2sVMM2N7nTvbsQeB42J6nOOrW12bG2zIs8ohFblZHe6d/d1Oejv74/MzlU8lGibCfqKxeKVRrwzm43HAlMAatvviqdHRkaC9QScxkVk021DwAFRfalcGv+xeXN1bq52x5ats8Crf80vnL3yx29TiZ7e59s7tg7Ft3TEc5n09PT0tG08syoiEckBGF04seaVFtuOA1ixuf9OvQP6rqj5avb3SmlHKptdU0BhaT3L1gbLsVpRgMlSYdvNUb1VlKeAqBFzsjObjbcWMNYFCMxNg2sJmE3B4wCOmEK957ru/KVy4UtxnCeBO2OheaOONX9Tk+zJlRXsUsTunLl4sdIIplKp9oC2MYR//FJ3T6uZSKZzZ7Es+OXCIECkOQFVeUFET8UCU0im+w7WMydWeyKwHEboUCuDaw2cKGpFVx76qjmYLI+dRzkE3IvqZ0RrVaK1KsqnCNsROTTpjX3fijyReSip8LCo+aFlRN3d2ZR15COQnUAFOIVwedmbdCI6CMSBc47V/Z7neivkqWxexHwC2h4lmi2VRn9dJZC4Pzcghi9Qaoq8dfstztHR0dFVvyqfz0f/nA9fFNG3gRhqnvbLP30LkOzJfQP0Kzw7WSocW+Vg+ebmAjCjTrhncnz8cqsI6rUjk+80NvgauMex+ojnuV4ynTuMcgD4G/RNv+QO199ArGOGUWrXQg4wVRydCTF7gCVr5Agg/kThIE6YQjkH8mEi1bcPQLp6+h5T9AToy37JPbIeeWN1pXOvqPKBFR2amnBPA2QymdiidY4pMmhCEgbsXqDSZsKPN0IOoIvzR4GqsbK33isWi4vG8hogoaOvG0V2oXK6WCwublTA9/0FgTMIuxr7nuf+AowIDBjgboz6GyVfcSF4wLarAGEcuC8iyj4JuXC9Ak5o3g8j4fnmvpXIe44NWg7kjVX/Ap7dYx0LcmfJAAAAAElFTkSuQmCC",
+        "theme": "light"
+      },
+      {
+        "mimeType": "image/png",
+        "sizes": null,
+        "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABmJLR0QA/wD/AP+gvaeTAAAB20lEQVRIidXUvUuVcRQH8PPc1JYUrKWUDCmwoKa2QsTKoKEwxWhr6G1tqDVqaAn8F6I5oS0ipBp6WZqiAi1bEgIrIpcorD4NHvFye+7Vrkv94Dc853zP93venl/E/36Keg60RsRgROyOiEpEPI+IB0VR/FyzKgYw48/zBv1rJe/HN7zDKNrzDmMqfc2JoAVvk3xjib8zfa/R0ozA4WzFaAPMWGKG8vskLuDIiqK4lMHtDTAdibmY3+9rZrSnGl+piV9YqcpY3jwREUVRdEXEhog4GhGtETGJznrZHchMhhtUcCIxh0p8u/ADV+sFV3KAU2VZYBNmE7OuDsdj3K+XYGAfvua2jGXPOzLz2VzT/Q3iH2GykUCByyU/2dK50iB2B77jWj3ATjxNos+4hfG8E2mDJ+irid2LaXzCljLyQcxjDmctvkW1mFacwwd8wUCV72GKH6+X+TxeYGvd/i3je/AqRfrSNo6F5DldDS6y5LnVkFfFbcPHHGqRtu24i184tQQcytLOrJa8SuR8xh6ssrXhTm5bd+BmDq+tCYH12aYbNfbe3KbrYfH9mPhb8iqy25gusd/Ds0pEbI6ImWYFImI6IrpK7C8jojcwgu5m2dGFYyX2How0y/vvnN8dpHfeBcHNQgAAAABJRU5ErkJggg==",
+        "theme": "dark"
+      }
+    ],
+    "inputSchema": {
+      "properties": {
+        "order": {
+          "description": "Sort order",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        },
+        "page": {
+          "description": "Page number for pagination (min 1)",
+          "minimum": 1,
+          "type": "number"
+        },
+        "perPage": {
+          "description": "Results per page for pagination (min 1, max 100)",
+          "maximum": 100,
+          "minimum": 1,
+          "type": "number"
+        },
+        "query": {
+          "description": "User search query. Examples: 'john smith', 'location:seattle', 'followers:>100'. Search is automatically scoped to type:user.",
+          "type": "string"
+        },
+        "sort": {
+          "description": "Sort users by number of followers or repositories, or when the person joined GitHub.",
+          "enum": [
+            "followers",
+            "repositories",
+            "joined"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_users",
+    "outputSchema": null,
+    "title": null
+  }
+}

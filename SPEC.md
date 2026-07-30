@@ -240,7 +240,7 @@ mcp-guarded-router/
 ├── .env.example
 ├── specs/F0..F10-*.md
 ├── config/
-│   ├── servers.toml              # MCP server launch config
+│   ├── servers.toml              # MCP server launch config (see note below)
 │   └── policy.toml               # effects, guard thresholds, sandbox roots
 ├── schemas/
 │   ├── registry.json             # FROZEN tool-schema snapshot (committed)
@@ -266,6 +266,11 @@ mcp-guarded-router/
     ├── figures/*.svg
     └── results.md
 ```
+
+Each `[servers.<id>]` table in `config/servers.toml` carries `transport`, `command`, `args`,
+`url`, `headers_env`, `enabled`, and **`sandbox_arg`** — a boolean marking a server whose last
+positional argument must be replaced with the resolved `MCPR_SANDBOX_DIR` at launch, so no
+server is ever pointed at a directory outside the sandbox.
 
 ---
 
