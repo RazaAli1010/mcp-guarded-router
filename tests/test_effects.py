@@ -10,6 +10,7 @@ from __future__ import annotations
 import pytest
 
 from mcpr import mcp_client
+from mcpr.config import Settings
 from mcpr.registry import effect_for, effect_from_parts
 from mcpr.types import ToolSpec
 
@@ -75,9 +76,11 @@ def test_annotation_beats_name_heuristic() -> None:
 # --- config/servers.toml resolution -----------------------------------------------------------
 
 
-def test_sandbox_arg_replaces_the_last_positional_arg(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("MCPR_SANDBOX_DIR", "./sandbox")
-    configs = mcp_client.load_server_configs()
+def test_sandbox_arg_replaces_the_last_positional_arg() -> None:
+    # An explicit Settings keeps every test here hermetic: load_server_configs() would
+    # otherwise call load_env(), which re-reads the developer's .env and makes the result
+    # depend on whose machine the suite is running on.
+    configs = mcp_client.load_server_configs(settings=Settings(sandbox_dir="./sandbox"))
 
     for server_id in ("git", "filesystem"):
         cfg = configs[server_id]
@@ -90,7 +93,7 @@ def test_sandbox_arg_replaces_the_last_positional_arg(monkeypatch: pytest.Monkey
 def test_unset_header_var_is_left_as_a_placeholder(monkeypatch: pytest.MonkeyPatch) -> None:
     """The surviving ${VAR} is how a missing PAT becomes an actionable reason, not a 401."""
     monkeypatch.delenv("MCPR_GITHUB_PAT", raising=False)
-    cfg = mcp_client.load_server_configs()["github"]
+    cfg = mcp_client.load_server_configs(settings=Settings())["github"]
 
     assert cfg.headers["Authorization"] == "Bearer ${MCPR_GITHUB_PAT}"
     with pytest.raises(mcp_client.McpUnavailable, match="MCPR_GITHUB_PAT"):
@@ -99,7 +102,7 @@ def test_unset_header_var_is_left_as_a_placeholder(monkeypatch: pytest.MonkeyPat
 
 def test_set_header_var_is_expanded(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("MCPR_GITHUB_PAT", "ghp_example")
-    cfg = mcp_client.load_server_configs()["github"]
+    cfg = mcp_client.load_server_configs(settings=Settings())["github"]
 
     assert cfg.headers["Authorization"] == "Bearer ghp_example"
     assert cfg.headers["X-MCP-Readonly"] == "true"
@@ -118,7 +121,7 @@ def test_minimal_env_carries_no_project_secret(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_package_name_skips_launcher_flags() -> None:
-    configs = mcp_client.load_server_configs()
+    configs = mcp_client.load_server_configs(settings=Settings())
     assert mcp_client.package_name(configs["git"]) == "mcp-server-git"
     assert mcp_client.package_name(configs["fetch"]) == "mcp-server-fetch"
     assert (
@@ -127,14 +130,16 @@ def test_package_name_skips_launcher_flags() -> None:
 
 
 def test_disabled_server_is_reported_not_launched() -> None:
-    cfg = mcp_client.load_server_configs()["fetch"].model_copy(update={"enabled": False})
+    cfg = mcp_client.load_server_configs(settings=Settings())["fetch"].model_copy(
+        update={"enabled": False}
+    )
     with pytest.raises(mcp_client.McpUnavailable, match="disabled"):
         mcp_client._require_reachable("fetch", cfg)
 
 
 def test_missing_executable_gives_an_actionable_reason() -> None:
     """F1 asks for an actionable message rather than a traceback when uv is absent."""
-    cfg = mcp_client.load_server_configs()["fetch"].model_copy(
+    cfg = mcp_client.load_server_configs(settings=Settings())["fetch"].model_copy(
         update={"command": "definitely-not-installed-xyz"}
     )
     with pytest.raises(mcp_client.McpUnavailable, match="not on PATH"):
