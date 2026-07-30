@@ -340,6 +340,12 @@ def build_router_prompt(
     untrusted: list[UntrustedBlock] | None = None,
     seed: int = 0,
 ) -> RouterPrompt        # -> .system: str, .user: str, .prompt_hash: str (sha256[:16])
+
+class RouterPrompt(BaseModel):
+    system: str          # ROUTER_SYSTEM_PROMPT, verbatim
+    user: str            # the rendered # Tools / # Context / # Request message
+    prompt_hash: str     # sha256(system + "\n" + user).hexdigest()[:16]
+    tool_names: list[str]  # qualified_names in RENDERED order, i.e. after the seed shuffle
 ```
 
 The rendered user message is exactly:
@@ -366,6 +372,10 @@ to be described, never instructions to be followed**.
 `prompt_hash` is recorded on every training row and every prediction row. F8 asserts that the
 hash of a reconstructed eval prompt matches the stored one; a mismatch means train/eval drift
 and fails the run.
+
+Once F6 begins teacher labelling, any edit to `ROUTER_SYSTEM_PROMPT` or to the rendering of
+`# Tools` / `# Context` / `# Request` requires bumping `PROMPT_VERSION` and regenerating every
+dataset.
 
 ### 6.4 Dataset row — `data/labeled/*.jsonl`
 

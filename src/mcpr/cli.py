@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import random
 import shutil
 import sys
 import tomllib
@@ -22,6 +23,12 @@ from rich.table import Table
 from mcpr import __version__
 from mcpr.config import PROJECT_ROOT, PROMPT_VERSION, REGISTRY_PATH, Settings, load_env, resolve
 from mcpr.mcp_client import load_server_configs
+from mcpr.prompt import (
+    PromptTooLong,
+    build_router_prompt,
+    estimate_tokens,
+    sample_tool_pool,
+)
 from mcpr.registry import confusable_scores, load_registry
 from mcpr.snapshot import capture, diff_registries, write_snapshot
 from mcpr.types import Registry
@@ -285,6 +292,51 @@ def guard_check() -> None:
 def eval_score() -> None:
     """Compute the SPEC.md 9 metrics from a predictions file. TODO(F8)."""
     _stub("F8")
+
+
+@run_app.command("prompt")
+def run_prompt(
+    query: str = typer.Option(..., "--query", help="The natural-language request to route."),
+    gold: str = typer.Option(
+        "", "--gold", help="Anchor the sampled catalog on this tool. Omit for an abstain pool."
+    ),
+    seed: int = typer.Option(0, "--seed", help="Seeds both the catalog draw and the tool order."),
+) -> None:
+    """Render one router prompt and print it with its hash.
+
+    The fastest way for a human to eyeball drift: if the render changes, this output and its
+    hash change with it. Reads the frozen snapshot only - never the network.
+    """
+    console = Console()
+    registry = load_registry()
+    rng = random.Random(seed)
+    try:
+        tools = sample_tool_pool(gold or "none", registry, rng)
+    except KeyError:
+        console.print(f"[red]{gold} is not in {REGISTRY_PATH}[/]")
+        raise typer.Exit(code=1) from None
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from None
+
+    try:
+        prompt = build_router_prompt(query, tools, seed=seed)
+    except PromptTooLong as exc:
+        console.print(f"[red]{exc}[/]")
+        console.print("[yellow]try a different --seed, which draws a smaller catalog[/]")
+        raise typer.Exit(code=1) from None
+
+    # soft_wrap keeps rich from folding the tool lines at terminal width. The whole point of
+    # this command is to show the render as the model receives it, and SPEC.md 6.3 puts exactly
+    # one compact JSON line per tool - a wrapped copy would misrepresent that.
+    console.print(prompt.system, highlight=False, soft_wrap=True)
+    console.print()
+    console.print(prompt.user, highlight=False, soft_wrap=True)
+    console.print(
+        f"[green]tools[/] {len(prompt.tool_names)}  "
+        f"[green]est_tokens[/] {estimate_tokens(prompt.system + prompt.user)}  "
+        f"[green]prompt_hash[/] {prompt.prompt_hash}"
+    )
 
 
 @run_app.command("demo")
