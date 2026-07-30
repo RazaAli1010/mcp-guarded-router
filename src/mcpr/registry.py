@@ -16,12 +16,22 @@ import tomllib
 from functools import lru_cache
 from pathlib import Path
 
-from mcpr.config import REGISTRY_PATH, resolve
+from mcpr.config import REGISTRY_PATH, Settings, load_env, resolve
 from mcpr.io import sha256_file
-from mcpr.types import Effect, Registry, ToolSpec
+from mcpr.types import Effect, EffectSource, Registry, ToolSpec
 
 #: Tunable effect overrides. Local, not a SPEC.md 7.1 constant.
 POLICY_PATH = "config/policy.toml"
+
+#: Every section `config/policy.toml` may carry (SPEC.md 8). `load_policy` returns all of them
+#: whether or not the file defines them, so no caller has to defend against a missing table.
+POLICY_SECTIONS = ("effects", "rules", "limits", "thresholds", "paths")
+
+#: Servers whose path arguments name something on the local disk, and are therefore subject to
+#: containment (SPEC.md 8.3 as amended by F3). Overridable via `[paths] sandboxed_servers`.
+DEFAULT_SANDBOXED_SERVERS = ("filesystem", "git")
+
+_EFFECTS: frozenset[str] = frozenset({"read", "write", "destructive"})
 
 #: SPEC.md 8.1 rule 3, verbatim. Matched against the first token of the tool name before `_`.
 READ_VERBS = frozenset(
@@ -51,17 +61,79 @@ def load_registry(path: str | Path = REGISTRY_PATH) -> Registry:
     return Registry.model_validate_json(resolve(path).read_text(encoding="utf-8"))
 
 
+class PolicyError(ValueError):
+    """A malformed `config/policy.toml`.
+
+    Raised at load time rather than tolerated at check time: an override naming a tool that does
+    not exist, or claiming an effect class that does not exist, would otherwise fall silently
+    through to the annotation and heuristic tiers. A typo in the one table that pins destructive
+    operations must be loud (F3 scope 5).
+    """
+
+
+@lru_cache(maxsize=8)
+def _read_policy_toml(path: str) -> dict:
+    """Parse `config/policy.toml`. Impure on the first call for a given path; cached thereafter.
+
+    Cached on the path *string* only. `load_policy` deliberately is not cached, because its
+    result folds in `MCPR_SANDBOX_DIR` and would go stale the moment a test moved the sandbox.
+    """
+    with open(resolve(path), "rb") as fh:
+        return tomllib.load(fh)
+
+
 @lru_cache(maxsize=8)
 def load_effect_overrides(path: str | Path = POLICY_PATH) -> dict[str, str]:
     """Read `[effects]` from `config/policy.toml` - rule 1 of SPEC.md 8.1.
 
-    Impure on the first call for a given path; cached thereafter. The table is empty until
-    F3 fills it in, so this returns `{}` today and the derivation falls through to rules 2
-    and 3.
+    Impure on the first call for a given path; cached thereafter. Values are **not** validated
+    here - `snapshot.py` calls this while building the registry the validation would need, so
+    the check lives in `load_policy`, which every guard goes through.
     """
-    with open(resolve(path), "rb") as fh:
-        data = tomllib.load(fh)
+    data = _read_policy_toml(str(path))
     return {str(k): str(v) for k, v in (data.get("effects") or {}).items()}
+
+
+def load_policy(
+    path: str | Path = POLICY_PATH,
+    settings: Settings | None = None,
+    registry: Registry | None = None,
+) -> dict:
+    """Load the whole guard policy, with the sandbox root resolved to an absolute path. Impure.
+
+    This is the caller boundary that keeps `policy_guard.check` pure: the guard never reads an
+    env var or touches the filesystem, it just reads `policy["paths"]["sandbox_root"]`, which
+    arrives here already resolved from `MCPR_SANDBOX_DIR` (SPEC.md 7.2).
+
+    Every section of SPEC.md 8's policy file is present in the result whether or not the file
+    declares it, so callers index rather than `.get` twice.
+
+    Raises `PolicyError` when an `[effects]` key is not a `qualified_name` in the registry, or
+    its value is not one of read/write/destructive. Validating the keys is why this function
+    needs a registry at all, and why it cannot live in `config.py` - that module is imported
+    *by* this one.
+    """
+    data = _read_policy_toml(str(path))
+    policy: dict = {name: dict(data.get(name) or {}) for name in POLICY_SECTIONS}
+
+    effects = {str(k): str(v) for k, v in policy["effects"].items()}
+    known = {spec.qualified_name for spec in (registry or load_registry()).tools}
+    for qualified_name, effect in sorted(effects.items()):
+        if effect not in _EFFECTS:
+            raise PolicyError(
+                f"[effects] {qualified_name!r} = {effect!r}: expected one of {sorted(_EFFECTS)}"
+            )
+        if qualified_name not in known:
+            raise PolicyError(
+                f"[effects] {qualified_name!r} is not a tool in the registry. An override for a "
+                "tool that does not exist would silently do nothing."
+            )
+    policy["effects"] = effects
+
+    sandbox_dir = (settings if settings is not None else load_env()).sandbox_dir
+    policy["paths"]["sandbox_root"] = str(resolve(sandbox_dir))
+    policy["paths"].setdefault("sandboxed_servers", list(DEFAULT_SANDBOXED_SERVERS))
+    return policy
 
 
 def get(qualified_name: str, registry: Registry | None = None) -> ToolSpec:
@@ -143,21 +215,50 @@ def effect_from_parts(
     `snapshot.py` needs the effect in order to construct a `ToolSpec` at all - `effect` is a
     required field - so the derivation cannot itself require one.
     """
+    return effect_with_source_from_parts(qualified_name, name, annotations, overrides)[0]
+
+
+def effect_with_source(
+    spec: ToolSpec, overrides: dict[str, str] | None = None
+) -> tuple[Effect, EffectSource]:
+    """`effect_for`, plus which of SPEC.md 8.1's three tiers decided it. Pure.
+
+    `mcpr guard audit` exits 1 on any tool that is `destructive` by `heuristic` alone: a guess
+    from a verb prefix must never be the only thing standing between the router and a delete.
+    That check needs the provenance, not just the answer.
+    """
+    return effect_with_source_from_parts(
+        spec.qualified_name, spec.name, spec.annotations, overrides
+    )
+
+
+def effect_with_source_from_parts(
+    qualified_name: str,
+    name: str,
+    annotations: dict,
+    overrides: dict[str, str] | None = None,
+) -> tuple[Effect, EffectSource]:
+    """The one implementation of SPEC.md 8.1, first match wins. Pure.
+
+    Everything else in this module - `effect_for`, `effect_from_parts`, `effect_with_source` -
+    delegates here, so the derivation cannot drift between the path `snapshot.py` bakes into the
+    registry and the path the guards evaluate at runtime.
+    """
     override = (overrides or {}).get(qualified_name)
-    if override in ("read", "write", "destructive"):
-        return override  # type: ignore[return-value]
+    if override in _EFFECTS:
+        return override, "override"  # type: ignore[return-value]
 
     if annotations.get("destructiveHint") is True:
-        return "destructive"
+        return "destructive", "annotation"
     if annotations.get("readOnlyHint") is True:
-        return "read"
+        return "read", "annotation"
 
     verb = name.split("_")[0].lower()
     if verb in READ_VERBS:
-        return "read"
+        return "read", "heuristic"
     if verb in DESTRUCTIVE_VERBS:
-        return "destructive"
-    return "write"
+        return "destructive", "heuristic"
+    return "write", "heuristic"
 
 
 def registry_sha256(path: str | Path = REGISTRY_PATH) -> str:
